@@ -108,8 +108,8 @@ function InitializeTooltip(self, name, numColumns, ...)
 	self.columns = self.columns or {}
 	self.lines = self.lines or {}
 	
-	self.regularFont = "GameTooltipText"
-	self.headerFont = "GameTooltipHeader"
+	self.regularFont = GameTooltipText
+	self.headerFont = GameTooltipHeader
 
 	-- Create and lay out the columns
 	for i = 1, numColumns do
@@ -170,12 +170,12 @@ function tipProto:Clear()
 end
 
 function tipProto:SetFont(font)
-	assert(font.IsObjectType and font.IsObjectType('Font'))
+	assert(font.IsObjectType and font:IsObjectType("Font"), "tooltip:SetFont(): font must be a Font instance")
 	self.regularFont = font
 end
 
 function tipProto:SetHeaderFont(font)
-	assert(font.IsObjectType and font.IsObjectType('Font'))
+	assert(font.IsObjectType and font:IsObjectType("Font"), "tooltip:SetHeaderFont(): font must be a Font instance")
 	self.headerFont = font
 end
 
@@ -234,6 +234,7 @@ function tipProto:SetCell(lineNum, colNum, value, font)
 	end
 	local fontString = cell.fontString
 	if font then
+		assert(font.IsObjectType and font:IsObjectType("Font"), "tooltip:SetCell(): font must be nil or a Font instance")
 		fontString:SetFontObject(font)
 	end
 	fontString:SetJustifyH(column.justification)
