@@ -200,6 +200,7 @@ local function CreateLine(self, font, ...)
 	for colNum = 1, self.numColumns do
 		self:SetCell(lineNum, colNum, select(colNum, ...), font)
 	end
+	return lineNum
 end
 
 function tipProto:AddLine(...)
@@ -220,14 +221,16 @@ local function CreateCell(self, line, column)
 	cell:SetPoint("RIGHT", column, "RIGHT", 0, 0)
 	cell:SetPoint("TOP", line, "TOP", 0, 0)
 	cell:SetPoint("BOTTOM", line, "BOTTOM", 0, 0)
+	cell.justification = nil
 	return cell
 end
 
-function tipProto:SetCell(lineNum, colNum, value, font)
+function tipProto:SetCell(lineNum, colNum, value, font, justification)
 	local line = self.lines[lineNum]
 	local column = self.columns[colNum]
 	assert(line, "tooltip:SetCell(): invalid line number: "..tostring(lineNum))
 	assert(column, "tooltip:SetCell(): invalid column number: "..tostring(colNum))
+	assert(justification == nil or justification == "LEFT" or justification == "CENTER" or justification == "RIGHT", "LibTooltip:SetCell(): invalid justification: "..tostring(justification))	
 	local cell = line.cells[colNum]
 	if not cell then
 		cell = CreateCell(self, line, column)
@@ -238,7 +241,8 @@ function tipProto:SetCell(lineNum, colNum, value, font)
 		assert(font.IsObjectType and font:IsObjectType("Font"), "tooltip:SetCell(): font must be nil or a Font instance")
 		fontString:SetFontObject(font)
 	end
-	fontString:SetJustifyH(column.justification)
+	cell.justification = justification or cell.justification or column.justification
+	fontString:SetJustifyH(cell.justification)
 	fontString:SetText(tostring(value or ""))
 	fontString:Show()
 	
