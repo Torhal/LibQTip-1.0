@@ -11,8 +11,15 @@ if (not Tooltip) then return end -- No upgrade needed
 local TOOLTIP_PADDING = 10
 local CELL_MARGIN = 3
 
+local bgFrame = {
+	edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+	bgFile = "Interface\\Tooltips\\UI-Tooltip-Background",
+	edgeSize = 10,
+	insets = {left = 2.5, right = 2.5, top = 2.5, bottom = 2.5}
+}
+
 -- Tooltip private methods
-local CreateTooltip, InitializeTooltip, FinalizeTooltip
+local CreateTooltip, InitializeTooltip, FinalizeTooltip, ResetTooltipSize
 
 ------------------------------------------------------------------------------
 -- Public library API
@@ -25,7 +32,7 @@ local activeTooltips = Tooltip.activeTooltips
 local tooltipHeap = Tooltip.tooltipHeap
 
 function Tooltip:Acquire(name, numColumns, ...)
-	assert(not activeTips[name], "Tooltip "..name.." already in use.")
+	assert(not activeTooltips[name], "LibTooltip:Acquire(): Tooltip '"..tostring(name).."' already in use.")
 	local tooltip = tremove(tooltipHeap) or CreateTooltip()
 	InitializeTooltip(tooltip, name, numColumns, ...)
 	activeTooltips[name] = tooltip
@@ -76,13 +83,6 @@ end
 -- Tooltip prototype
 ------------------------------------------------------------------------------
 
-local bgFrame = {
-	edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
-	bgFile = "Interface\\Tooltips\\UI-Tooltip-Background",
-	edgeSize = 10,
-	insets = {left = 2.5, right = 2.5, top = 2.5, bottom = 2.5}
-}
-
 Tooltip.frameMeta = Tooltip.frameMeta or {__index = CreateFrame("Frame")}
 Tooltip.tipProto = Tooltip.tipProto or setmetatable({}, Tooltip.frameMeta)
 Tooltip.tipMeta = Tooltip.tipMeta or {__index = Tooltip.tipProto}
@@ -90,13 +90,8 @@ Tooltip.tipMeta = Tooltip.tipMeta or {__index = Tooltip.tipProto}
 local tipProto = Tooltip.tipProto
 local tipMeta = Tooltip.tipMeta
 
--- Default fonts
-tipProto.regularFont = "GameTooltipText"
-tipProto.headerFont = "GameTooltipHeader"
-
 function CreateTooltip()
-	local self = setmetatable(CreateFrame("Frame", nil, UIParent), tipMeta)
-	return self
+	return setmetatable(CreateFrame("Frame", nil, UIParent), tipMeta)
 end
 
 function InitializeTooltip(self, name, numColumns, ...)
@@ -113,12 +108,8 @@ function InitializeTooltip(self, name, numColumns, ...)
 	self.columns = self.columns or {}
 	self.lines = self.lines or {}
 	
-	self.width = 2*TOOLTIP_PADDING + (numColumns - 1) * CELL_MARGIN
-	self.height = 2*TOOLTIP_PADDING
-
-	-- Reset some attributes to the prototype value (defaults)
-	self.regularFont = nil
-	self.headerFont = nil
+	self.regularFont = "GameTooltipText"
+	self.headerFont = "GameTooltipHeader"
 
 	-- Create and lay out the columns
 	for i = 1, numColumns do
@@ -126,6 +117,7 @@ function InitializeTooltip(self, name, numColumns, ...)
 		assert(justification == "LEFT" or justification == "CENTER" or justification == "RIGHT", "LibTooltip:Acquire(): invalid justification for column "..i..": "..tostring(justification))
 		local column = AcquireFrame(self)
 		column.justification = justification
+		column.width = 0
 		column:SetWidth(0)
 		column:SetPoint("TOP", self, "TOP", 0, -TOOLTIP_PADDING)
 		column:SetPoint("BOTTOM", self, "BOTTOM", 0, TOOLTIP_PADDING)
@@ -137,6 +129,8 @@ function InitializeTooltip(self, name, numColumns, ...)
 		self.columns[i] = column
 		column:Show()
 	end
+	
+	ResetTooltipSize(self)
 end
 
 function FinalizeTooltip(self)
@@ -148,10 +142,18 @@ function FinalizeTooltip(self)
 	end
 end
 
+function ResetTooltipSize(self)
+	self.width = 2*TOOLTIP_PADDING + (self.numColumns - 1) * CELL_MARGIN
+	self.height = 2*TOOLTIP_PADDING
+	self:SetWidth(self.width)
+	self:SetHeight(self.height)
+end
+
 function tipProto:Clear()
 	for i, line in ipairs(self.lines) do
 		for j, cell in ipairs(line.cells) do
 			cell.fontString:SetText(nil)
+			cell.fontString:Hide()
 			cell:Hide()
 			ReleaseFrame(cell)
 			line.cells[j] = nil
@@ -161,12 +163,10 @@ function tipProto:Clear()
 		self.lines[i] = nil
 	end
 	for i, column in ipairs(self.columns) do
+		column.width = 0
 		column:SetWidth(0)
 	end
-	self.width = 2*TOOLTIP_PADDING + (self.numColumns - 1) * CELL_MARGIN
-	self.height = 2*TOOLTIP_PADDING
-	self:SetWidth(self.width)
-	self:SetHeight(self.height)
+	ResetTooltipSize(self)
 end
 
 function tipProto:SetFont(font)
@@ -193,6 +193,7 @@ local function CreateLine(self, font, ...)
 	end
 	self.lines[lineNum] = line	
 	line.cells = line.cells or {}	
+	line.height = 0
 	line:SetHeight(0)
 	line:Show()
 	for colNum = 1, self.numColumns do
@@ -210,13 +211,9 @@ end
 
 local function CreateCell(self, line, column)
 	local cell = AcquireFrame(self)
-	local fontString = cell.fontString
-	if not fontString then
-		fontString = cell:CreateFontString(nil, "ARTWORK", font)
-		fontString:SetAllPoints(cell)
-		cell.fontString = fontString
-	else
-		fontString:SetFontObject(font)
+	if not cell.fontString then
+		cell.fontString = cell:CreateFontString(nil, "ARTWORK")
+		cell.fontString:SetAllPoints(cell)
 	end
 	cell:SetPoint("LEFT", column, "LEFT", 0, 0)
 	cell:SetPoint("RIGHT", column, "RIGHT", 0, 0)
@@ -226,30 +223,41 @@ local function CreateCell(self, line, column)
 end
 
 function tipProto:SetCell(lineNum, colNum, value, font)
-	local line = self.lines[line]
-	local column = self.columns[column]
-	assert(line, "tooltip:SetCell(): invalid line number: "..lineNum)
-	assert(column, "tooltip:SetCell(): invalid column number: "..colNum)
+	local line = self.lines[lineNum]
+	local column = self.columns[colNum]
+	assert(line, "tooltip:SetCell(): invalid line number: "..tostring(lineNum))
+	assert(column, "tooltip:SetCell(): invalid column number: "..tostring(colNum))
 	local cell = line.cells[colNum]
 	if not cell then
 		cell = CreateCell(self, line, column)
 		line.cells[colNum] = cell
 	end
 	local fontString = cell.fontString
+	if font then
+		fontString:SetFontObject(font)
+	end
 	fontString:SetJustifyH(column.justification)
 	fontString:SetText(tostring(value or ""))
+	fontString:Show()
+	
+	local width, height = fontString:GetStringWidth(), fontString:GetStringHeight()
+	
+	-- Set the cell size (required to have the fontString displayed)
+	cell:SetWidth(width)
+	cell:SetHeight(height)
+	cell:Show()
 	
 	-- Grows the tooltip as needed
-	local oldWidth, oldHeight = column:GetWidth(), line:GetHeight()
-	local width, height = fontString:GetStringWidth(), fontStrong:GetStringHeight()
-	if width > oldWidth then
-		column:SetWidth(width)
-		self.width = self.width + width - oldWidth
+	if width > column.width then
+		self.width = self.width + width - column.width
 		self:SetWidth(self.width)
+		column.width = width
+		column:SetWidth(width)
 	end
-	if height > oldHeight then
-		line:SetHeight(height)
-		self.height = self.height + height - oldHeight
+	if height > line.height then
+		self.height = self.height + height - line.height
 		self:SetHeight(self.height)
+		line.height = height
+		line:SetHeight(height)
 	end
 end
