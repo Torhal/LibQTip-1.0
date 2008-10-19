@@ -32,14 +32,30 @@ local activeTooltips = Tooltip.activeTooltips
 local tooltipHeap = Tooltip.tooltipHeap
 
 function Tooltip:Acquire(name, numColumns, ...)
+-- Tristanian: Refined with safeguards, feel free to remove if not really necessary
+-- name must be string (?), should be decided
+	assert(name and type(name)~= "number", "LibTooltip:Acquire(name, numColumns, ...): No 'name' provided or invalid type.")
 	assert(not activeTooltips[name], "LibTooltip:Acquire(): Tooltip '"..tostring(name).."' already in use.")
+	if not numColumns or type(numColumns)~= "number" or numColumns <= 0 then numColumns = 1 end
 	local tooltip = tremove(tooltipHeap) or CreateTooltip()
 	InitializeTooltip(tooltip, name, numColumns, ...)
 	activeTooltips[name] = tooltip
 	return tooltip
 end
 
+-- Tristanian: IsAcquired
+-- name must be string (?), should be decided
+function Tooltip:IsAcquired(name)
+	if activeTooltips[name] then
+		return true
+	else
+		return false
+	end
+end
+
 function Tooltip:Release(tooltip)
+ -- Tristanian: Supress errors for invalid tooltip frames passed
+	if not tooltip then return end
 	local name = tooltip.name
 	tooltip:Hide()
 	FinalizeTooltip(tooltip)
