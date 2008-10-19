@@ -101,6 +101,7 @@ function InitializeTooltip(self, name, numColumns, ...)
 	self:SetBackdropBorderColor(1, 1, 1)
 	self:SetAlpha(0.75)
 	self:SetScale(1.0)
+	self:SetFrameStrata("TOOLTIP")
 
 	-- Our data
 	self.name = name
