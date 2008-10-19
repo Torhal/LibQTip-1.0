@@ -7,11 +7,12 @@ local Tooltip, oldminor = LibStub:NewLibrary(MAJOR, MINOR)
 
 if (not Tooltip) then return end -- No upgrade needed
 
-local CreateNewTooltip, InitializeTooltip
-
 -- Internal constants to tweak the layout
 local TOOLTIP_PADDING = 10
 local CELL_MARGIN = 3
+
+-- Tooltip private methods
+local CreateTooltip, InitializeTooltip, FinalizeTooltip
 
 ------------------------------------------------------------------------------
 -- Public library API
@@ -25,8 +26,8 @@ local tooltipHeap = Tooltip.tooltipHeap
 
 function Tooltip:Acquire(name, numColumns, ...)
 	assert(not activeTips[name], "Tooltip "..name.." already in use.")
-	local tooltip = tremove(tooltipHeap) or CreateNewTooltip()
-	tooltip:Initialize(name, numColumns, ...)
+	local tooltip = tremove(tooltipHeap) or CreateTooltip()
+	InitializeTooltip(tooltip, name, numColumns, ...)
 	activeTooltips[name] = tooltip
 	return tooltip
 end
@@ -34,7 +35,7 @@ end
 function Tooltip:Release(tooltip)
 	local name = tooltip.name
 	tooltip:Hide()
-	tooltip:Clear()
+	FinalizeTooltip(tooltip)
 	tinsert(tooltipHeap, tooltip)
 	activeTooltips[name] = nil
 end
@@ -69,7 +70,6 @@ local function ReleaseFrame(frame)
 	frame:SetParent(nil)
 	frame:ClearAllPoints()
 	tinsert(frameHeap, frame)
-	return nil -- unneeded, but clearer
 end
 
 ------------------------------------------------------------------------------
@@ -88,16 +88,18 @@ Tooltip.tipProto = Tooltip.tipProto or setmetatable({}, Tooltip.frameMeta)
 Tooltip.tipMeta = Tooltip.tipMeta or {__index = Tooltip.tipProto}
 
 local tipProto = Tooltip.tipProto
-local tipMeta = tipMeta
+local tipMeta = Tooltip.tipMeta
 
 -- Default fonts
+tipProto.regularFont = "GameTooltipText"
+tipProto.headerFont = "GameTooltipHeader"
 
-function CreateNewTooltip()
+function CreateTooltip()
 	local self = setmetatable(CreateFrame("Frame", nil, UIParent), tipMeta)
 	return self
 end
 
-function tipProto:Initialize(name, numColumns, ...)
+function InitializeTooltip(self, name, numColumns, ...)
 	-- (Re)set frame settings
 	self:SetBackdrop(bgFrame)
 	self:SetBackdropColor(0, 0, 0)
@@ -137,22 +139,34 @@ function tipProto:Initialize(name, numColumns, ...)
 	end
 end
 
-function tipProto:Clear()
+function FinalizeTooltip(self)
+	self:Clear()
 	for i, column in ipairs(self.columns) do
 		column:Hide()
 		ReleaseFrame(column)
 		self.columns[i] = nil
 	end
+end
+
+function tipProto:Clear()
 	for i, line in ipairs(self.lines) do
 		for j, cell in ipairs(line.cells) do
+			cell.fontString:SetText(nil)
 			cell:Hide()
-			ReleaseGrame(cell)
+			ReleaseFrame(cell)
 			line.cells[j] = nil
 		end
 		line:Hide()
 		ReleaseFrame(line)
 		self.lines[i] = nil
 	end
+	for i, column in ipairs(self.columns) do
+		column:SetWidth(0)
+	end
+	self.width = 2*TOOLTIP_PADDING + (self.numColumns - 1) * CELL_MARGIN
+	self.height = 2*TOOLTIP_PADDING
+	self:SetWidth(self.width)
+	self:SetHeight(self.height)
 end
 
 function tipProto:SetFont(font)
