@@ -34,7 +34,7 @@ local tooltipHeap = LibTooltip.tooltipHeap
 function LibTooltip:Acquire(name, numColumns, ...)
 -- Tristanian: Refined with safeguards, feel free to remove if not really necessary
 -- name must be string (?), should be decided
-	assert(name and type(name)~= "number", "LibTooltip:Acquire(name, numColumns, ...): No 'name' provided or invalid type.")
+	assert(name and type(name) == "string", "LibTooltip:Acquire(name, numColumns, ...): No 'name' provided or invalid type.")
 	assert(not activeTooltips[name], "LibTooltip:Acquire(): Tooltip '"..tostring(name).."' already in use.")
 	if not numColumns or type(numColumns)~= "number" or numColumns <= 0 then numColumns = 1 end
 	local tooltip = tremove(tooltipHeap) or CreateTooltip()
@@ -54,9 +54,9 @@ function LibTooltip:IsAcquired(name)
 end
 
 function LibTooltip:Release(tooltip)
- -- Tristanian: Supress errors for invalid tooltip frames passed
-	if not tooltip then return end
-	local name = tooltip.name
+-- Tristanian: Supress errors for invalid tooltip frames passed
+	local name = tooltip and tooltip.name
+	if not name or activeTooltips[name] ~= tooltip then return end
 	tooltip:Hide()
 	FinalizeTooltip(tooltip)
 	tinsert(tooltipHeap, tooltip)
@@ -233,14 +233,14 @@ end
 local function CreateCell(self, line, column)
 	local cell = AcquireFrame(self)
 	if not cell.fontString then
-		cell.fontString = cell:CreateFontString(nil, "ARTWORK")
-		cell.fontString:SetFontObject(GameTooltipText)
+		cell.fontString = cell:CreateFontString(nil, "ARTWORK")		
 		cell.fontString:SetAllPoints(cell)
 	end
 	cell:SetPoint("LEFT", column, "LEFT", 0, 0)
 	cell:SetPoint("RIGHT", column, "RIGHT", 0, 0)
 	cell:SetPoint("TOP", line, "TOP", 0, 0)
 	cell:SetPoint("BOTTOM", line, "BOTTOM", 0, 0)
+	cell.fontString:SetFontObject(self.regularFont)
 	cell.justification = nil
 	return cell
 end
@@ -251,7 +251,14 @@ function tipProto:SetCell(lineNum, colNum, value, font, justification)
 	assert(line, "tooltip:SetCell(): invalid line number: "..tostring(lineNum))
 	assert(column, "tooltip:SetCell(): invalid column number: "..tostring(colNum))
 	assert(justification == nil or justification == "LEFT" or justification == "CENTER" or justification == "RIGHT", "LibTooltip:SetCell(): invalid justification: "..tostring(justification))
+	assert(font == nil or font.IsObjectType and font:IsObjectType("Font"), "tooltip:SetCell(): font must be nil or a Font instance")
 	local cell = line.cells[colNum]
+	-- Do not create new cell frame for empty strings after the first column, 
+	-- this allow to create full-heighted empty lines without creating
+	-- bunch of useless empty cell frames.
+	if colNum > 1 and cell == nil and (value == nil or tostring(value) == "") then
+		return
+	end
 
 	if not cell then
 		cell = CreateCell(self, line, column)
@@ -259,9 +266,7 @@ function tipProto:SetCell(lineNum, colNum, value, font, justification)
 	end
 
 	local fontString = cell.fontString
-
 	if font then
-		assert(font.IsObjectType and font:IsObjectType("Font"), "tooltip:SetCell(): font must be nil or a Font instance")
 		fontString:SetFontObject(font)
 	end
 	cell.justification = justification or cell.justification or column.justification
@@ -290,3 +295,7 @@ function tipProto:SetCell(lineNum, colNum, value, font, justification)
 		line:SetHeight(height)
 	end
 end
+
+function tipProto:GetLineCount() return #self.lines end
+
+function tipProto:GetColumnCount() return self.numColumns end
