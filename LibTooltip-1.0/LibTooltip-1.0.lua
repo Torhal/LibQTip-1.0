@@ -33,42 +33,32 @@ LibTooltip.tooltipHeap = LibTooltip.tooltipHeap or {}
 local activeTooltips = LibTooltip.activeTooltips
 local tooltipHeap = LibTooltip.tooltipHeap
 
-function LibTooltip:Acquire(name, numColumns, ...)
--- Tristanian: Refined with safeguards, feel free to remove if not really necessary
--- name must be string (?), should be decided
-	assert(name and type(name) == "string", "LibTooltip:Acquire(name, numColumns, ...): No 'name' provided or invalid type.")
-	assert(not activeTooltips[name], "LibTooltip:Acquire(): Tooltip '"..tostring(name).."' already in use.")
+function LibTooltip:Acquire(key, numColumns, ...)
+	assert(key, "LibTooltip:Acquire(key, numColumns, ...): key might not be nil.")
 	if not numColumns or type(numColumns)~= "number" or numColumns <= 0 then numColumns = 1 end
-	local tooltip = tremove(tooltipHeap) or CreateTooltip()
-	InitializeTooltip(tooltip, name, numColumns, ...)
-	activeTooltips[name] = tooltip
+	local tooltip = activeTooltips[key]
+	if tooltip then
+		assert(numColumns == tooltip.numColumns, "LibTooltip:Acquire(key, numColumns, ...): tooltip already exists with a different number of columns.")
+		return toolip
+	end
+	tooltip = tremove(tooltipHeap) or CreateTooltip()
+	InitializeTooltip(tooltip, key, numColumns, ...)
+	activeTooltips[key] = tooltip
 	return tooltip
 end
 
--- Tristanian: IsAcquired
-function LibTooltip:IsAcquired(name)
-	assert(name, "LibTooltip:IsAcquired(name): No 'name' provided.")
-	if activeTooltips[name] then
-		return true
-	else
-		return false
-	end
-end
-
--- Tristanian: GetTooltip
--- simple func to return the tip
-function LibTooltip:GetTooltip(name)
-	assert(name, "LibTooltip:GetTooltip(name): No 'name' provided.")
-	return activeTooltips[name]
+function LibTooltip:IsAcquired(key)
+	assert(key, "LibTooltip:IsAcquired(key): No key provided.")
+	return not not activeTooltips[key]
 end
 
 function LibTooltip:Release(tooltip)
-	local name = tooltip and tooltip.name
-	if not name or activeTooltips[name] ~= tooltip then return end
+	local key = tooltip and tooltip.key
+	if not key or activeTooltips[key] ~= tooltip then return end
 	tooltip:Hide()
 	FinalizeTooltip(tooltip)
 	tinsert(tooltipHeap, tooltip)
-	activeTooltips[name] = nil
+	activeTooltips[key] = nil
 end
 
 function LibTooltip:IterateTooltips()
@@ -118,7 +108,7 @@ function CreateTooltip()
 	return setmetatable(CreateFrame("Frame", nil, UIParent), tipMeta)
 end
 
-function InitializeTooltip(self, name, numColumns, ...)
+function InitializeTooltip(self, key, numColumns, ...)
 	-- (Re)set frame settings
 	self:SetBackdrop(bgFrame)	
 	self:SetBackdropColor(0.09, 0.09, 0.09)
@@ -128,7 +118,7 @@ function InitializeTooltip(self, name, numColumns, ...)
 	self:SetFrameStrata("TOOLTIP")
 
 	-- Our data
-	self.name = name
+	self.key = key
 	self.numColumns = numColumns
 	self.columns = self.columns or {}
 	self.lines = self.lines or {}
