@@ -3,9 +3,9 @@
 assert(LibStub, "LibTooltip-1.0 requires LibStub")
 
 local MAJOR, MINOR = "LibTooltip-1.0", 1
-local Tooltip, oldminor = LibStub:NewLibrary(MAJOR, MINOR)
+local LibTooltip, oldminor = LibStub:NewLibrary(MAJOR, MINOR)
 
-if (not Tooltip) then return end -- No upgrade needed
+if (not LibTooltip) then return end -- No upgrade needed
 
 -- Internal constants to tweak the layout
 local TOOLTIP_PADDING = 10
@@ -25,13 +25,13 @@ local CreateTooltip, InitializeTooltip, FinalizeTooltip, ResetTooltipSize
 -- Public library API
 ------------------------------------------------------------------------------
 
-Tooltip.activeTooltips = Tooltip.activeTooltips or {}
-Tooltip.tooltipHeap = Tooltip.tooltipHeap or {}
+LibTooltip.activeTooltips = LibTooltip.activeTooltips or {}
+LibTooltip.tooltipHeap = LibTooltip.tooltipHeap or {}
 
-local activeTooltips = Tooltip.activeTooltips
-local tooltipHeap = Tooltip.tooltipHeap
+local activeTooltips = LibTooltip.activeTooltips
+local tooltipHeap = LibTooltip.tooltipHeap
 
-function Tooltip:Acquire(name, numColumns, ...)
+function LibTooltip:Acquire(name, numColumns, ...)
 -- Tristanian: Refined with safeguards, feel free to remove if not really necessary
 -- name must be string (?), should be decided
 	assert(name and type(name)~= "number", "LibTooltip:Acquire(name, numColumns, ...): No 'name' provided or invalid type.")
@@ -45,7 +45,7 @@ end
 
 -- Tristanian: IsAcquired
 -- name must be string (?), should be decided
-function Tooltip:IsAcquired(name)
+function LibTooltip:IsAcquired(name)
 	if activeTooltips[name] then
 		return true
 	else
@@ -53,7 +53,7 @@ function Tooltip:IsAcquired(name)
 	end
 end
 
-function Tooltip:Release(tooltip)
+function LibTooltip:Release(tooltip)
  -- Tristanian: Supress errors for invalid tooltip frames passed
 	if not tooltip then return end
 	local name = tooltip.name
@@ -63,7 +63,7 @@ function Tooltip:Release(tooltip)
 	activeTooltips[name] = nil
 end
 
-function Tooltip:IterateTooltips()
+function LibTooltip:IterateTooltips()
 	return pairs(activeTooltips)
 end
 
@@ -75,8 +75,8 @@ local function Debug(msg)
 	ChatFrame1:AddMessage("|cffff9933Debug:|r "..msg)
 end
 
-Tooltip.frameHeap = Tooltip.frameHeap or {}
-local frameHeap = Tooltip.frameHeap
+LibTooltip.frameHeap = LibTooltip.frameHeap or {}
+local frameHeap = LibTooltip.frameHeap
 
 local function AcquireFrame(parent)
 	local frame = tremove(frameHeap)
@@ -99,12 +99,12 @@ end
 -- Tooltip prototype
 ------------------------------------------------------------------------------
 
-Tooltip.frameMeta = Tooltip.frameMeta or {__index = CreateFrame("Frame")}
-Tooltip.tipProto = Tooltip.tipProto or setmetatable({}, Tooltip.frameMeta)
-Tooltip.tipMeta = Tooltip.tipMeta or {__index = Tooltip.tipProto}
+LibTooltip.frameMeta = LibTooltip.frameMeta or {__index = CreateFrame("Frame")}
+LibTooltip.tipProto = LibTooltip.tipProto or setmetatable({}, LibTooltip.frameMeta)
+LibTooltip.tipMeta = LibTooltip.tipMeta or {__index = LibTooltip.tipProto}
 
-local tipProto = Tooltip.tipProto
-local tipMeta = Tooltip.tipMeta
+local tipProto = LibTooltip.tipProto
+local tipMeta = LibTooltip.tipMeta
 
 function CreateTooltip()
 	return setmetatable(CreateFrame("Frame", nil, UIParent), tipMeta)
@@ -124,7 +124,7 @@ function InitializeTooltip(self, name, numColumns, ...)
 	self.numColumns = numColumns
 	self.columns = self.columns or {}
 	self.lines = self.lines or {}
-	
+
 	self.regularFont = GameTooltipText
 	self.headerFont = GameTooltipHeader
 
@@ -146,7 +146,6 @@ function InitializeTooltip(self, name, numColumns, ...)
 		self.columns[i] = column
 		column:Show()
 	end
-	
 	ResetTooltipSize(self)
 end
 
@@ -191,12 +190,16 @@ function tipProto:SetFont(font)
 	self.regularFont = font
 end
 
+function tipProto:GetFont() return self.regularFont end
+
 function tipProto:SetHeaderFont(font)
 	assert(font.IsObjectType and font:IsObjectType("Font"), "tooltip:SetHeaderFont(): font must be a Font instance")
 	self.headerFont = font
 end
 
-local function CreateLine(self, font, ...)	
+function tipProto:GetHeaderFont() return self.headerFont end
+
+local function CreateLine(self, font, ...)
 	local line = AcquireFrame(self)
 	local lineNum = #self.lines + 1
 	line:SetPoint('LEFT', self, 'LEFT', TOOLTIP_PADDING, 0)
@@ -208,8 +211,8 @@ local function CreateLine(self, font, ...)
 	else
 		line:SetPoint('TOP', self, 'TOP', 0, -TOOLTIP_PADDING)
 	end
-	self.lines[lineNum] = line	
-	line.cells = line.cells or {}	
+	self.lines[lineNum] = line
+	line.cells = line.cells or {}
 	line.height = 0
 	line:SetHeight(0)
 	line:Show()
@@ -246,7 +249,7 @@ function tipProto:SetCell(lineNum, colNum, value, font, justification)
 	local column = self.columns[colNum]
 	assert(line, "tooltip:SetCell(): invalid line number: "..tostring(lineNum))
 	assert(column, "tooltip:SetCell(): invalid column number: "..tostring(colNum))
-	assert(justification == nil or justification == "LEFT" or justification == "CENTER" or justification == "RIGHT", "LibTooltip:SetCell(): invalid justification: "..tostring(justification))	
+	assert(justification == nil or justification == "LEFT" or justification == "CENTER" or justification == "RIGHT", "LibTooltip:SetCell(): invalid justification: "..tostring(justification))
 	local cell = line.cells[colNum]
 	if not cell then
 		cell = CreateCell(self, line, column)
@@ -261,14 +264,14 @@ function tipProto:SetCell(lineNum, colNum, value, font, justification)
 	fontString:SetJustifyH(cell.justification)
 	fontString:SetText(tostring(value or ""))
 	fontString:Show()
-	
+
 	local width, height = fontString:GetStringWidth(), fontString:GetStringHeight()
-	
+
 	-- Set the cell size (required to have the fontString displayed)
 	cell:SetWidth(width)
 	cell:SetHeight(height)
 	cell:Show()
-	
+
 	-- Grows the tooltip as needed
 	if width > column.width then
 		self.width = self.width + width - column.width
