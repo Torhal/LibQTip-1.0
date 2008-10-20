@@ -14,8 +14,10 @@ local CELL_MARGIN = 3
 local bgFrame = {
 	edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
 	bgFile = "Interface\\Tooltips\\UI-Tooltip-Background",
-	edgeSize = 10,
-	insets = {left = 2.5, right = 2.5, top = 2.5, bottom = 2.5}
+	tile = true,
+	tileSize = 16,
+	edgeSize = 16,	
+	insets = {left = 5, right = 5, top = 5, bottom = 5}
 }
 
 -- Tooltip private methods
@@ -44,8 +46,8 @@ function LibTooltip:Acquire(name, numColumns, ...)
 end
 
 -- Tristanian: IsAcquired
--- name must be string (?), should be decided
 function LibTooltip:IsAcquired(name)
+	assert(name, "LibTooltip:IsAcquired(name): No 'name' provided.")
 	if activeTooltips[name] then
 		return true
 	else
@@ -53,8 +55,14 @@ function LibTooltip:IsAcquired(name)
 	end
 end
 
+-- Tristanian: GetTooltip
+-- simple func to return the tip
+function LibTooltip:GetTooltip(name)
+	assert(name, "LibTooltip:GetTooltip(name): No 'name' provided.")
+	return activeTooltips[name]
+end
+
 function LibTooltip:Release(tooltip)
--- Tristanian: Supress errors for invalid tooltip frames passed
 	local name = tooltip and tooltip.name
 	if not name or activeTooltips[name] ~= tooltip then return end
 	tooltip:Hide()
@@ -112,10 +120,10 @@ end
 
 function InitializeTooltip(self, name, numColumns, ...)
 	-- (Re)set frame settings
-	self:SetBackdrop(bgFrame)
-	self:SetBackdropColor(0, 0, 0)
+	self:SetBackdrop(bgFrame)	
+	self:SetBackdropColor(0.09, 0.09, 0.09)
 	self:SetBackdropBorderColor(1, 1, 1)
-	self:SetAlpha(0.75)
+	self:SetAlpha(0.9)
 	self:SetScale(1.0)
 	self:SetFrameStrata("TOOLTIP")
 
