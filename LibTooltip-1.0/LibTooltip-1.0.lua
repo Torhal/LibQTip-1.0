@@ -234,6 +234,7 @@ local function CreateCell(self, line, column)
 	local cell = AcquireFrame(self)
 	if not cell.fontString then
 		cell.fontString = cell:CreateFontString(nil, "ARTWORK")
+		cell.fontString:SetFontObject(GameTooltipText)
 		cell.fontString:SetAllPoints(cell)
 	end
 	cell:SetPoint("LEFT", column, "LEFT", 0, 0)
@@ -251,10 +252,8 @@ function tipProto:SetCell(lineNum, colNum, value, font, justification)
 	assert(column, "tooltip:SetCell(): invalid column number: "..tostring(colNum))
 	assert(justification == nil or justification == "LEFT" or justification == "CENTER" or justification == "RIGHT", "LibTooltip:SetCell(): invalid justification: "..tostring(justification))
 	local cell = line.cells[colNum]
-	local newcell = false
 
 	if not cell then
-		newcell = true
 		cell = CreateCell(self, line, column)
 		line.cells[colNum] = cell
 	end
@@ -264,8 +263,6 @@ function tipProto:SetCell(lineNum, colNum, value, font, justification)
 	if font then
 		assert(font.IsObjectType and font:IsObjectType("Font"), "tooltip:SetCell(): font must be nil or a Font instance")
 		fontString:SetFontObject(font)
-	elseif newcell then
-		fontString:SetFontObject(GameTooltipText)
 	end
 	cell.justification = justification or cell.justification or column.justification
 	fontString:SetJustifyH(cell.justification)
