@@ -34,7 +34,7 @@ local activeTooltips = LibTooltip.activeTooltips
 local tooltipHeap = LibTooltip.tooltipHeap
 
 function LibTooltip:Acquire(key, numColumns, ...)
-	assert(key, "LibTooltip:Acquire(key, numColumns, ...): key might not be nil.")
+	assert(key, "LibTooltip:Acquire(key, numColumns, ...): key must not be nil.")
 	if not numColumns or type(numColumns)~= "number" or numColumns <= 0 then numColumns = 1 end
 	local tooltip = activeTooltips[key]
 	if tooltip then
@@ -124,7 +124,7 @@ function InitializeTooltip(self, key, numColumns, ...)
 	self.lines = self.lines or {}
 
 	self.regularFont = GameTooltipText
-	self.headerFont = GameTooltipHeader
+	self.headerFont = GameTooltipHeaderText
 
 	-- Create and lay out the columns
 	for i = 1, numColumns do
@@ -249,7 +249,7 @@ function tipProto:SetCell(lineNum, colNum, value, font, justification)
 	assert(line, "tooltip:SetCell(): invalid line number: "..tostring(lineNum))
 	assert(column, "tooltip:SetCell(): invalid column number: "..tostring(colNum))
 	assert(justification == nil or justification == "LEFT" or justification == "CENTER" or justification == "RIGHT", "LibTooltip:SetCell(): invalid justification: "..tostring(justification))
-	assert(font == nil or font.IsObjectType and font:IsObjectType("Font"), "tooltip:SetCell(): font must be nil or a Font instance")
+
 	local cell = line.cells[colNum]
 	-- Do not create new cell frame for empty strings after the first column, 
 	-- this allow to create full-heighted empty lines without creating
