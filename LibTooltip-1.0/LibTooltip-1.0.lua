@@ -51,7 +51,7 @@ local tooltipHeap = LibTooltip.tooltipHeap
 local frameHeap = LibTooltip.frameHeap
 
 -- Tooltip private methods
-local InitializeTooltip, FinalizeTooltip, ResetTooltipSize
+local InitializeTooltip, FinalizeTooltip, ResetTooltipSize, ResizeColspans
 
 ------------------------------------------------------------------------------
 -- Public library API
@@ -236,9 +236,12 @@ function InitializeTooltip(self, key)
 	self.key = key
 	self.columns = self.columns or {}
 	self.lines = self.lines or {}
+	self.colspans = self.colspans or {}
 
 	self.regularFont = GameTooltipText
 	self.headerFont = GameTooltipHeaderText
+	
+	self:SetScript('OnShow', ResizeColspans)
 
 	ResetTooltipSize(self)
 end
@@ -255,7 +258,7 @@ function tipPrototype:SetColumnLayout(numColumns, ...)
 		else
 			self:AddColumn(justification)
 		end
-	end
+	end	
 end
 
 function tipPrototype:AddColumn(justification)
@@ -311,6 +314,9 @@ function tipPrototype:Clear()
 		column.width = 0
 		column:SetWidth(0)
 	end
+	for k in pairs(self.colspans) do
+		self.colspans[k] = nil
+	end
 	ResetTooltipSize(self)
 end
 
@@ -328,22 +334,46 @@ end
 
 function tipPrototype:GetHeaderFont() return self.headerFont end
 
+local function EnlargeColumn(self, column, width)
+	if width > column.width then
+		self.width = self.width + width - column.width
+		self:SetWidth(self.width)
+		column.width = width
+		column:SetWidth(width)			
+	end
+end
+
+function ResizeColspans(self)
+	if not self:IsShown() then return end
+	local columns = self.columns
+	for colRange, width in pairs(self.colspans) do
+		local left, right = colRange:match("(%d)%-(%d)")
+		left, right = tonumber(left), tonumber(right)
+		for col = left, right-1 do 
+			width = width - columns[col].width - CELL_MARGIN
+		end
+		EnlargeColumn(self, columns[right], width)
+		self.colspans[colRange] = nil
+	end
+end
+
 local function SetCell(self, lineNum, colNum, value, font, justification, colSpan, provider, ...)
 	-- Line and column checks
 	local line = self.lines[lineNum]
 	local rightColNum = colNum+colSpan-1
 	local leftColumn = self.columns[colNum]
 	local rightColumn = self.columns[rightColNum]
-
+	
 	-- Release any existing cells, checking for overlaps
 	-- We use "false" to indicate unavailable slots
+	local cells = line.cells
 	for i = colNum, rightColNum do
-		if line.cells[i] == false then
+		if cells[i] == false then
 			error("tooltip:SetCell(): overlapping cells at column "..i, 3)
-		elseif line.cells[i] then
-			line.cells[i]:ReleaseCell()
+		elseif cells[i] then
+			cells[i]:ReleaseCell()
 		end
-		line.cells[i] = false
+		cells[i] = false
 	end
 
 	-- Create the cell and anchor it
@@ -352,7 +382,7 @@ local function SetCell(self, lineNum, colNum, value, font, justification, colSpa
 	cell:SetPoint("RIGHT", rightColumn, "RIGHT", 0, 0)
 	cell:SetPoint("TOP", line, "TOP", 0, 0)
 	cell:SetPoint("BOTTOM", line, "BOTTOM", 0, 0)
-	line.cells[colNum] = cell
+	cells[colNum] = cell
 
 	-- Setup the cell content
 	local width, height = cell:SetupCell(tooltip, value, justification or leftColumn.justification, font, ...)
@@ -362,15 +392,13 @@ local function SetCell(self, lineNum, colNum, value, font, justification, colSpa
 	cell:SetHeight(height)
 	cell:Show()
 
-	-- Enlarge the latest column and tooltip if need be
-	for i = colNum, rightColNum-1 do
-		width = width - self.columns[i].width - CELL_MARGIN
-	end
-	if width > rightColumn.width then
-		self.width = self.width + width - rightColumn.width
-		self:SetWidth(self.width)
-		rightColumn.width = width
-		rightColumn:SetWidth(width)
+	if colSpan > 1 then
+		-- Postpone width changes until the tooltip is shown
+		local colRange = colNum.."-"..rightColNum
+		self.colspans[colRange] = math.max(self.colspans[colRange] or 0, width)
+	else
+		-- Enlarge the column and tooltip if need be
+		EnlargeColumn(self, leftColumn, width)
 	end
 
 	-- Enlarge the line and tooltip if need be
@@ -412,11 +440,15 @@ local function CreateLine(self, font, ...)
 end
 
 function tipPrototype:AddLine(...)
-	return CreateLine(self, self.regularFont, ...)
+	local lineNum = CreateLine(self, self.regularFont, ...)
+	ResizeColspans(self)
+	return lineNum
 end
 
 function tipPrototype:AddHeader(...)
-	return CreateLine(self, self.headerFont, ...)
+	local lineNum = CreateLine(self, self.headerFont, ...)
+	ResizeColspans(self)
+	return lineNum
 end
 
 function tipPrototype:SetCell(lineNum, colNum, value, font, justification, colSpan, provider, ...)
@@ -446,7 +478,9 @@ function tipPrototype:SetCell(lineNum, colNum, value, font, justification, colSp
 		checkJustification(justification, 2)
 	end
 
-	return SetCell(self, lineNum, colNum, value, font, justification, colSpan, provider, ...)
+	SetCell(self, lineNum, colNum, value, font, justification, colSpan, provider, ...)
+	
+	ResizeColspans(self)
 end
 
 function tipPrototype:GetLineCount() return #self.lines end
