@@ -487,46 +487,50 @@ function tipPrototype:GetLineCount() return #self.lines end
 
 function tipPrototype:GetColumnCount() return #self.columns end
 
---[[
-http://www.pastey.net/99125
+------------------------------------------------------------------------------
+-- "Smart" Anchoring (work in progress)
+------------------------------------------------------------------------------
 
 local function GetTipAnchor(frame)
-		 local x,y = frame:GetCenter()
-		 if not x or not y then return "TOPLEFT", "BOTTOMLEFT" end
-		 local hhalf = (x > UIParent:GetWidth()*2/3) and "RIGHT" or (x < UIParent:GetWidth()/3) and "LEFT" or ""
-		 local vhalf = (y > UIParent:GetHeight()/2) and "TOP" or "BOTTOM"
-		 return vhalf..hhalf, (vhalf == "TOP" and "BOTTOM" or "TOP")..hhalf
+	local x,y = frame:GetCenter()
+	if not x or not y then return "TOPLEFT", "BOTTOMLEFT" end
+	local hhalf = (x > UIParent:GetWidth()*2/3) and "RIGHT" or (x < UIParent:GetWidth()/3) and "LEFT" or ""
+	local vhalf = (y > UIParent:GetHeight()/2) and "TOP" or "BOTTOM"
+	return vhalf..hhalf, (vhalf == "TOP" and "BOTTOM" or "TOP")..hhalf
+end
+
+local function GetOffscreen(frame)
+	local offX, offsetX
+		if frame and frame:GetLeft() and frame:GetLeft() * frame:GetEffectiveScale() < UIParent:GetLeft() * UIParent:GetEffectiveScale() then
+			offX = -1
+			offsetX = (UIParent:GetLeft() - frame:GetLeft())* frame:GetScale()
+		elseif frame and frame:GetRight() and frame:GetRight() * frame:GetEffectiveScale() > UIParent:GetRight() * UIParent:GetEffectiveScale() then
+			offX = 1
+			if frame:GetScale()< 1 then
+				offsetX = frame:GetRight()* frame:GetScale() - UIParent:GetRight() 
+			else
+				offsetX = -(UIParent:GetRight() - frame:GetRight()* frame:GetScale())
+			end
+		else
+			offX = 0
+			offsetX = 0
+		end
+	return offX, offsetX
+end
+
+function tipPrototype:SmartAnchorTo(frame)
+	if not frame then
+		error("tooltip:SmartAnchorTo(frame): Invalid frame provided.", 2)
 	end
-
-	local function GetOffscreen(frame)
-		 local offX, offsetX
-		 if frame and frame:GetLeft() and frame:GetLeft() * frame:GetEffectiveScale() < UIParent:GetLeft() * UIParent:GetEffectiveScale() then
-			  offX = -1;
-			  offsetX = UIParent:GetLeft() - frame:GetLeft()
-		 elseif frame and frame:GetRight() and frame:GetRight() * frame:GetEffectiveScale() > UIParent:GetRight() * UIParent:GetEffectiveScale() then
-			  offX = 1;
-			  offsetX = frame:GetRight() - UIParent:GetRight()
-		 else
-			  offX = 0;
-			  offsetX = 0;
-		 end
-		 return offX, offsetX
-	end
-
-
-
-	-- lib
-
-	-- anchoring
-		 tt:ClearAllPoints()
-		 -- get offscreenX and adjust accordingly
-		 local offX, offsetX = GetOffscreen(self)
-		 local anchorPoint1, anchorPoint2 = GetTipAnchor(self)
-		 if offX == -1 then
-			  tt:SetPoint(anchorPoint1, self, anchorPoint2, offsetX, 0)
-		 elseif offX == 1 then
-			  tt:SetPoint(anchorPoint1, self, anchorPoint2, -offsetX, 0)
-		 else
-			  tt:SetPoint(anchorPoint1, self, anchorPoint2)
-		 end
---]]
+	self:ClearAllPoints()
+	-- get frame offscreenX and adjust accordingly
+	local offX, offsetX = GetOffscreen(frame)
+	local anchorPoint1, anchorPoint2 = GetTipAnchor(frame)
+		if offX == -1 then
+			self:SetPoint(anchorPoint1, frame, anchorPoint2, offsetX, 0)
+		elseif offX == 1 then
+			self:SetPoint(anchorPoint1, frame, anchorPoint2, -offsetX, 0)
+		else
+			self:SetPoint(anchorPoint1, frame, anchorPoint2)
+		end
+end
