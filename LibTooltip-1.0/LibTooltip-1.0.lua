@@ -229,8 +229,9 @@ function InitializeTooltip(self, key)
 	self:SetBackdropColor(0.09, 0.09, 0.09)
 	self:SetBackdropBorderColor(1, 1, 1)
 	self:SetAlpha(0.9)
-	self:SetScale(1.0)
+	self:SetScale(1.0)	
 	self:SetFrameStrata("TOOLTIP")
+	self:SetClampedToScreen(false)
 
 	-- Our data
 	self.key = key
@@ -504,6 +505,6 @@ function tipPrototype:SmartAnchorTo(frame)
 		error("tooltip:SmartAnchorTo(frame): Invalid frame provided.", 2)
 	end
 	self:ClearAllPoints()
-	self:SetClampedToScreen(true)		
+	self:SetClampedToScreen(true)
 	self:SetPoint(GetTipAnchor(frame))
 end
