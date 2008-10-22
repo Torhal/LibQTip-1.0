@@ -189,6 +189,7 @@ end
 function labelPrototype:InitializeCell()
    self.fontString = self:CreateFontString()
    self.fontString:SetAllPoints(self)
+	 self.fontString:SetFontObject(GameTooltipText)
 end
 
 function labelPrototype:SetupCell(tooltip, value, justification, font, ...)
@@ -231,7 +232,6 @@ function InitializeTooltip(self, key)
    
    -- Our data
    self.key = key
-   self.numColumns = 0
    self.columns = self.columns or {}
    self.lines = self.lines or {}
    
@@ -277,7 +277,6 @@ function tipProto:AddColumn(justification)
    end
    column:Show()
    self.columns[colNum] = column
-   self.numColumns = colNum
 end
 
 function FinalizeTooltip(self)
@@ -290,7 +289,7 @@ function FinalizeTooltip(self)
 end
 
 function ResetTooltipSize(self)
-   self.width = 2*TOOLTIP_PADDING
+   self.width = 2*TOOLTIP_PADDING + math.max(0, CELL_MARGIN * (#self.columns - 1))
    self.height = 2*TOOLTIP_PADDING
    self:SetWidth(self.width)
    self:SetHeight(self.height)
@@ -400,8 +399,11 @@ local function CreateLine(self, font, ...)
    line.height = 0
    line:SetHeight(0)
    line:Show()
-   for colNum = 1, self.numColumns do
-      SetCell(self, lineNum, colNum, (select(colNum, ...)), font, nil, 1, labelProvider)
+   for colNum = 1, #self.columns do
+			local value = select(colNum, ...)
+			if value ~= nil then
+				SetCell(self, lineNum, colNum, value, font, nil, 1, labelProvider)
+			end
    end
    return lineNum
 end
@@ -446,7 +448,7 @@ end
 
 function tipProto:GetLineCount() return #self.lines end
 
-function tipProto:GetColumnCount() return self.numColumns end
+function tipProto:GetColumnCount() return #self.columns end
 
 --[[
 http://www.pastey.net/99125
