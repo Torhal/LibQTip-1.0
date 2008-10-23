@@ -281,6 +281,7 @@ function tipPrototype:AddColumn(justification)
 	end
 	column:Show()
 	self.columns[colNum] = column
+	return colNum
 end
 
 function FinalizeTooltip(self)
