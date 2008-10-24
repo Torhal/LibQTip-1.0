@@ -307,7 +307,7 @@ function tipPrototype:Clear()
 	for k in pairs(self.colspans) do
 		self.colspans[k] = nil
 	end
-	for cell in self.providers do
+	for cell in pairs(self.providers) do
 		-- Shouldn't happen
 		ReleaseCell(self, cell)
 	end	
