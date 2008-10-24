@@ -52,6 +52,7 @@ local frameHeap = LibTooltip.frameHeap
 
 -- Tooltip private methods
 local InitializeTooltip, FinalizeTooltip, ResetTooltipSize, ResizeColspans
+local AcquireCell, ReleaseCell
 
 ------------------------------------------------------------------------------
 -- Public library API
@@ -122,20 +123,19 @@ function providerPrototype:AcquireCell(tooltip)
 	local cell = tremove(self.heap)
 	if not cell then
 		cell = setmetatable(CreateFrame("Frame", nil, tooltip), self.cellMetatable)
-		cell:InitializeCell()
-	else
-		cell:SetParent(tooltip)
+		if type(cell.InitializeCell) == 'function' then
+			cell:InitializeCell()
+		end
 	end
-	cell:SetFrameLevel(tooltip:GetFrameLevel()+1)
 	self.cells[cell] = true
 	return cell
 end
 
 function providerPrototype:ReleaseCell(cell)
 	if not self.cells[cell] then return end
-	cell:Hide()
-	cell:SetParent(nil)
-	cell:ClearAllPoints()
+	if type(cell.ReleaseCell) == 'function' then
+		cell:ReleaseCell()
+	end
 	self.cells[cell] = nil
 	tinsert(self.heap, cell)
 end
@@ -146,16 +146,6 @@ end
 
 function providerPrototype:IterateCells()
 	return pairs(self.cells)
-end
-
--- Cell prototype
-
-function cellPrototype:GetCellProvider()
-	return self.cellProvider
-end
-
-function cellPrototype:ReleaseCell()
-	self.cellProvider:ReleaseCell(self)
 end
 
 -- Cell provider factory
@@ -173,7 +163,6 @@ function LibTooltip:CreateCellProvider(baseProvider)
 	cellProvider.cells = {}
 	cellProvider.cellPrototype = cellPrototype
 	cellProvider.cellMetatable = { __index = cellPrototype }
-	cellPrototype.cellProvider = cellProvider
 	return cellProvider, cellPrototype, cellBasePrototype
 end
 
@@ -238,6 +227,7 @@ function InitializeTooltip(self, key)
 	self.columns = self.columns or {}
 	self.lines = self.lines or {}
 	self.colspans = self.colspans or {}
+	self.providers = self.providers or {}
 
 	self.regularFont = GameTooltipText
 	self.headerFont = GameTooltipHeaderText
@@ -303,9 +293,7 @@ end
 function tipPrototype:Clear()
 	for i, line in ipairs(self.lines) do
 		for j, cell in ipairs(line.cells) do
-			if cell then
-				cell:ReleaseCell()
-			end
+			ReleaseCell(self, cell)
 			line.cells[j] = nil
 		end
 		line:Hide()
@@ -319,6 +307,10 @@ function tipPrototype:Clear()
 	for k in pairs(self.colspans) do
 		self.colspans[k] = nil
 	end
+	for cell in self.providers do
+		-- Shouldn't happen
+		ReleaseCell(self, cell)
+	end	
 	ResetTooltipSize(self)
 end
 
@@ -359,6 +351,24 @@ function ResizeColspans(self)
 	end
 end
 
+function AcquireCell(self, provider)
+	local cell = provider:AcquireCell(self)
+	cell:SetParent(self)
+	cell:SetFrameLevel(self:GetFrameLevel()+1)	
+	self.providers[cell] = provider
+	return cell
+end
+
+function ReleaseCell(self, cell)
+	if cell and self.providers[cell] then
+		cell:Hide()
+		cell:SetParent(nil)
+		cell:ClearAllPoints()
+		self.providers[cell]:ReleaseCell(cell)
+		self.providers[cell] = nil
+	end
+end
+
 local function SetCell(self, lineNum, colNum, value, font, justification, colSpan, provider, ...)
 	-- Line and column checks
 	local line = self.lines[lineNum]
@@ -370,16 +380,17 @@ local function SetCell(self, lineNum, colNum, value, font, justification, colSpa
 	-- We use "false" to indicate unavailable slots
 	local cells = line.cells
 	for i = colNum, rightColNum do
-		if cells[i] == false then
+		local cell = cells[i]
+		if cell == false then
 			error("tooltip:SetCell(): overlapping cells at column "..i, 3)
-		elseif cells[i] then
-			cells[i]:ReleaseCell()
+		elseif cell then
+			ReleaseCell(self, cell)
 		end
 		cells[i] = false
 	end
 
 	-- Create the cell and anchor it
-	local cell = provider:AcquireCell(self)
+	local cell = AcquireCell(self, provider)
 	cell:SetPoint("LEFT", leftColumn, "LEFT", 0, 0)
 	cell:SetPoint("RIGHT", rightColumn, "RIGHT", 0, 0)
 	cell:SetPoint("TOP", line, "TOP", 0, 0)
