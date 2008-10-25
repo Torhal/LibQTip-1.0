@@ -196,16 +196,26 @@ end
 -- Helpers
 ------------------------------------------------------------------------------
 
-local function checkFont(font, level)
-	if not font or not font.IsObjectType or not font:IsObjectType("Font") then
-		error("font must be Font instance, not: "..tostring(font), level+1)
+local function checkFont(font, level, silent)
+	if not font or type(font) ~= 'table' or type(font.IsObjectType) ~= '' or not font:IsObjectType("Font") then
+		if silent then
+			return false
+		else
+			error("font must be Font instance, not: "..tostring(font), level+1)
+		end
 	end
+	return true
 end
 
-local function checkJustification(justification, method, level)
+local function checkJustification(justification, level, silent)
 	if justification ~= "LEFT" and justification ~= "CENTER" and justification ~= "RIGHT" then
-		error("invalid justification, must one of LEFT, CENTER or RIGHT, not: "..tostring(justification), level+1)
+		if silent then
+			return false 
+		else
+			error("invalid justification, must one of LEFT, CENTER or RIGHT, not: "..tostring(justification), level+1)
+		end
 	end
+	return true
 end
 
 ------------------------------------------------------------------------------
@@ -227,7 +237,7 @@ function InitializeTooltip(self, key)
 	self.columns = self.columns or {}
 	self.lines = self.lines or {}
 	self.colspans = self.colspans or {}
-	self.providers = self.providers or {}
+	self.states = self.states or {}
 
 	self.regularFont = GameTooltipText
 	self.headerFont = GameTooltipHeaderText
@@ -307,7 +317,7 @@ function tipPrototype:Clear()
 	for k in pairs(self.colspans) do
 		self.colspans[k] = nil
 	end
-	for cell in pairs(self.providers) do
+	for cell in pairs(self.states) do
 		-- Shouldn't happen
 		ReleaseCell(self, cell)
 	end	
@@ -355,34 +365,70 @@ function AcquireCell(self, provider)
 	local cell = provider:AcquireCell(self)
 	cell:SetParent(self)
 	cell:SetFrameLevel(self:GetFrameLevel()+1)	
-	self.providers[cell] = provider
 	return cell
 end
 
 function ReleaseCell(self, cell)
-	if cell and self.providers[cell] then
+	if cell and self.states[cell] then
 		cell:Hide()
 		cell:SetParent(nil)
 		cell:ClearAllPoints()
-		self.providers[cell]:ReleaseCell(cell)
-		self.providers[cell] = nil
+		self.states[cell][1]:ReleaseCell(cell)
+		self.states[cell] = nil
 	end
 end
 
-local function SetCell(self, lineNum, colNum, value, font, justification, colSpan, provider, ...)
-	-- Line and column checks
+local function _SetCell(self, lineNum, colNum, value, font, justification, colSpan, provider, ...)
 	local line = self.lines[lineNum]
+	local cells = line.cells
+	
+	-- Check previous cell
+	local cell, state
+	if prevCell == false then
+		error("overlapping cells at column "..colNum, 3)
+	elseif prevCell then
+		-- There is a cell here
+		state = self.states[prevCell]
+		if state[1] == provider then
+			-- Reuse existing cell
+			cell = prevCell
+		else
+			-- A new cell is required
+			ReleaseCell(self, prevCell)
+			cells[colNum] = nil
+		end
+	end
+	
+	-- Build or merge the cell state
+	if not state then
+		state = {}
+	end
+	state[1] = provider or labelProvider
+	state[2] = colSpan or state[2] or 1
+	state[3] = justification or state[3] or leftColumn.justification
+	state[4] = font or state[4] or self.regularFont
+	provider, colSpan, justification, font = unpack(state)
+	
 	local rightColNum = colNum+colSpan-1
 	local leftColumn = self.columns[colNum]
 	local rightColumn = self.columns[rightColNum]
 	
-	-- Release any existing cells, checking for overlaps
-	-- We use "false" to indicate unavailable slots
-	local cells = line.cells
-	for i = colNum, rightColNum do
+	if value == nil then
+		-- Unset
+		for i = colNum, rightColNum do
+			if cells[i] then
+				ReleaseCell(self, cells[i])
+			end
+			cells[i] = nil
+		end
+		return
+	end
+
+	-- Cleanup colspans
+	for i = colNum+1, rightColNum do
 		local cell = cells[i]
 		if cell == false then
-			error("tooltip:SetCell(): overlapping cells at column "..i, 3)
+			error("overlapping cells at column "..i, 3)
 		elseif cell then
 			ReleaseCell(self, cell)
 		end
@@ -390,15 +436,18 @@ local function SetCell(self, lineNum, colNum, value, font, justification, colSpa
 	end
 
 	-- Create the cell and anchor it
-	local cell = AcquireCell(self, provider)
-	cell:SetPoint("LEFT", leftColumn, "LEFT", 0, 0)
-	cell:SetPoint("RIGHT", rightColumn, "RIGHT", 0, 0)
-	cell:SetPoint("TOP", line, "TOP", 0, 0)
-	cell:SetPoint("BOTTOM", line, "BOTTOM", 0, 0)
-	cells[colNum] = cell
+	if not cell then
+		cell = AcquireCell(self, provider)
+		cell:SetPoint("LEFT", leftColumn, "LEFT", 0, 0)
+		cell:SetPoint("RIGHT", rightColumn, "RIGHT", 0, 0)
+		cell:SetPoint("TOP", line, "TOP", 0, 0)
+		cell:SetPoint("BOTTOM", line, "BOTTOM", 0, 0)
+		cells[colNum] = cell
+	end
+	self.states[cell] = state
 
 	-- Setup the cell content
-	local width, height = cell:SetupCell(tooltip, value, justification or leftColumn.justification, font, ...)
+	local width, height = cell:SetupCell(tooltip, value, justification, font, ...)
 
 	-- Enforce cell size
 	cell:SetWidth(width)
@@ -446,7 +495,7 @@ local function CreateLine(self, font, ...)
 	for colNum = 1, #self.columns do
 			local value = select(colNum, ...)
 			if value ~= nil then
-				SetCell(self, lineNum, colNum, value, font, nil, 1, labelProvider)
+				_SetCell(self, lineNum, colNum, value, font, nil, 1, labelProvider)
 			end
 	end
 	return lineNum
@@ -464,18 +513,10 @@ function tipPrototype:AddHeader(...)
 	return lineNum
 end
 
-function tipPrototype:SetCell(lineNum, colNum, value, font, justification, colSpan, provider, ...)
-	-- Defaults arguments
-	colSpan = colSpan or 1
-	provider = provider or labelProvider
-	font = font or self.regularFont
+function tipPrototype:SetCell(lineNum, colNum, value, ...)
 
-	-- Argument checking
-	if type(provider.AcquireCell) ~= "function" then
-		error("invalid cell provider", 2)
-	elseif type(colSpan) ~= "number" or colSpan < 1 then
-		error("colspan must be a positive number, not: "..tostring(colspan), 2)
-	elseif type(lineNum) ~= "number" then
+	-- Mandatory argument checking
+	if type(lineNum) ~= "number" then
 		error("line number must be a number, not: "..tostring(lineNum), 2)
 	elseif lineNum < 1 or lineNum > #self.lines then
 		error("line number out of range: "..tostring(lineNum), 2)
@@ -483,15 +524,25 @@ function tipPrototype:SetCell(lineNum, colNum, value, font, justification, colSp
 		error("column number must be a number, not: "..tostring(colNum), 2)
 	elseif colNum < 1 or colNum > #self.columns then
 		error("column number out of range: "..tostring(colNum), 2)
-	elseif colNum + colSpan - 1 > #self.columns then
-		error("colspan exceeds latest column: "..tostring(colSpan), 2)
-	end
-	checkFont(font, 2)
-	if justification then
-		checkJustification(justification, 2)
 	end
 
-	SetCell(self, lineNum, colNum, value, font, justification, colSpan, provider, ...)
+	-- Variable argument checking
+	local font, justification, colSpan, provider
+	local i, arg = 1, ...
+	if arg == nil or checkFont(arg, 2, true) then
+		i, font, arg = 2, ...
+	end
+	if arg == nil or checkJustification(arg, 2, true) then
+		i, justification, arg = i+1, select(i, ...)
+	end
+	if arg == nil or type(arg) == 'number' then
+		i, colSpan, arg = i+1, select(i, ...)
+	end
+	if arg == nil or type(arg) == 'table' and type(arg.AcquireCell) == 'function' then
+		i, provider = i+1, arg
+	end
+
+	_SetCell(self, lineNum, colNum, value, font, justification, colSpan, provider, select(i, ...))
 	
 	ResizeColspans(self)
 end
@@ -514,7 +565,7 @@ end
 
 function tipPrototype:SmartAnchorTo(frame)
 	if not frame then
-		error("tooltip:SmartAnchorTo(frame): Invalid frame provided.", 2)
+		error("Invalid frame provided.", 2)
 	end
 	self:ClearAllPoints()
 	self:SetClampedToScreen(true)
