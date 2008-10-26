@@ -403,6 +403,8 @@ local function _SetCell(self, lineNum, colNum, value, font, justification, colSp
 	if not state then
 		state = {}
 	end
+	local leftColumn = self.columns[colNum]
+
 	state[1] = provider or labelProvider
 	state[2] = colSpan or state[2] or 1
 	state[3] = justification or state[3] or leftColumn.justification
@@ -410,7 +412,6 @@ local function _SetCell(self, lineNum, colNum, value, font, justification, colSp
 	provider, colSpan, justification, font = unpack(state)
 	
 	local rightColNum = colNum+colSpan-1
-	local leftColumn = self.columns[colNum]
 	local rightColumn = self.columns[rightColNum]
 	
 	if value == nil then
