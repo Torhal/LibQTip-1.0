@@ -1,5 +1,5 @@
 --[[
-Copyright (c) 2008, LibStub Development Team 
+Copyright (c) 2008, LibTooltip Development Team 
 
 All rights reserved.
 
@@ -12,8 +12,8 @@ modification, are permitted provided that the following conditions are met:
       this list of conditions and the following disclaimer in the documentation 
       and/or other materials provided with the distribution.
     * Redistribution of a stand alone version is strictly prohibited without 
-      prior written authorization from the Lead of the LibStub Development Team. 
-    * Neither the name of the LibStub Development Team nor the names of its contributors 
+      prior written authorization from the Lead of the LibTooltip Development Team. 
+    * Neither the name of the LibTooltip Development Team nor the names of its contributors 
       may be used to endorse or promote products derived from this software without 
       specific prior written permission.
 
