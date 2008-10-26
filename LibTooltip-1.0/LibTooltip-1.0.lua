@@ -229,7 +229,7 @@ end
 ------------------------------------------------------------------------------
 
 local function checkFont(font, level, silent)
-	if not font or type(font) ~= 'table' or type(font.IsObjectType) ~= '' or not font:IsObjectType("Font") then
+	if not font or type(font) ~= 'table' or type(font.IsObjectType) ~= 'function' or not font:IsObjectType("Font") then
 		if silent then
 			return false
 		else
@@ -416,6 +416,7 @@ local function _SetCell(self, lineNum, colNum, value, font, justification, colSp
 
 	-- Check previous cell
 	local cell, state
+	local prevCell = cells[colNum]
 	if prevCell == false then
 		error("overlapping cells at column "..colNum, 3)
 	elseif prevCell then
@@ -445,11 +446,14 @@ local function _SetCell(self, lineNum, colNum, value, font, justification, colSp
 	local rightColumn = self.columns[rightColNum]
 
 	-- Unset
-	for i = colNum, rightColNum do
-		if cells[i] then
-			ReleaseCell(self, cells[i])
+	if value == nil then
+		for i = colNum, rightColNum do
+			if cells[i] then
+				ReleaseCell(self, cells[i])
+			end
+			cells[i] = nil
 		end
-		cells[i] = nil
+		return
 	end
 
 	-- Cleanup colspans
