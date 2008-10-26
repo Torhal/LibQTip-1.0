@@ -381,7 +381,7 @@ end
 local function _SetCell(self, lineNum, colNum, value, font, justification, colSpan, provider, ...)
 	local line = self.lines[lineNum]
 	local cells = line.cells
-	
+
 	-- Check previous cell
 	local cell, state
 	if prevCell == false then
@@ -398,11 +398,9 @@ local function _SetCell(self, lineNum, colNum, value, font, justification, colSp
 			cells[colNum] = nil
 		end
 	end
-	
-	-- Build or merge the cell state
-	if not state then
-		state = {}
-	end
+
+	if not state then state = {} end	-- Build or merge the cell state
+
 	local leftColumn = self.columns[colNum]
 
 	state[1] = provider or labelProvider
@@ -410,19 +408,16 @@ local function _SetCell(self, lineNum, colNum, value, font, justification, colSp
 	state[3] = justification or state[3] or leftColumn.justification
 	state[4] = font or state[4] or self.regularFont
 	provider, colSpan, justification, font = unpack(state)
-	
+
 	local rightColNum = colNum+colSpan-1
 	local rightColumn = self.columns[rightColNum]
-	
-	if value == nil then
-		-- Unset
-		for i = colNum, rightColNum do
-			if cells[i] then
-				ReleaseCell(self, cells[i])
-			end
-			cells[i] = nil
+
+	-- Unset
+	for i = colNum, rightColNum do
+		if cells[i] then
+			ReleaseCell(self, cells[i])
 		end
-		return
+		cells[i] = nil
 	end
 
 	-- Cleanup colspans
@@ -515,7 +510,6 @@ function tipPrototype:AddHeader(...)
 end
 
 function tipPrototype:SetCell(lineNum, colNum, value, ...)
-
 	-- Mandatory argument checking
 	if type(lineNum) ~= "number" then
 		error("line number must be a number, not: "..tostring(lineNum), 2)
@@ -544,7 +538,6 @@ function tipPrototype:SetCell(lineNum, colNum, value, ...)
 	end
 
 	_SetCell(self, lineNum, colNum, value, font, justification, colSpan, provider, select(i, ...))
-	
 	ResizeColspans(self)
 end
 
@@ -555,7 +548,6 @@ function tipPrototype:GetColumnCount() return #self.columns end
 ------------------------------------------------------------------------------
 -- "Smart" Anchoring (work in progress)
 ------------------------------------------------------------------------------
-
 local function GetTipAnchor(frame)
 	local x,y = frame:GetCenter()
 	if not x or not y then return "TOPLEFT", "BOTTOMLEFT" end
