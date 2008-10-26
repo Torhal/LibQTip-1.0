@@ -5,6 +5,7 @@
 ## Version: @project-version@ 
 ## X-Date: @project-date-iso@
 ## X-Category: Library, Tooltip
+## X-License: Ace3 BSD-like license
 
 LibStub\LibStub.lua
 LibTooltip-1.0\LibTooltip-1.0.lua
