@@ -269,7 +269,6 @@ function InitializeTooltip(self, key)
 	self.columns = self.columns or {}
 	self.lines = self.lines or {}
 	self.colspans = self.colspans or {}
-	self.states = self.states or {}
 
 	self.regularFont = GameTooltipText
 	self.headerFont = GameTooltipHeaderText
@@ -349,10 +348,6 @@ function tipPrototype:Clear()
 	for k in pairs(self.colspans) do
 		self.colspans[k] = nil
 	end
-	for cell in pairs(self.states) do
-		-- Shouldn't happen
-		ReleaseCell(self, cell)
-	end	
 	ResetTooltipSize(self)
 end
 
@@ -401,65 +396,73 @@ function AcquireCell(self, provider)
 end
 
 function ReleaseCell(self, cell)
-	if cell and self.states[cell] then
+	if cell and cell:GetParent() == self then
 		cell:Hide()
 		cell:SetParent(nil)
 		cell:ClearAllPoints()
-		self.states[cell].provider:ReleaseCell(cell)
-		self.states[cell] = nil
+		cell._provider:ReleaseCell(cell)
 	end
 end
 
 local function _SetCell(self, lineNum, colNum, value, font, justification, colSpan, provider, ...)
 	local line = self.lines[lineNum]
 	local cells = line.cells
+	
+	-- Unset: be quick
+	if value == nil then
+		local cell = cells[colNum]
+		if cell then
+			for i = colNum, colNum + cell._colSpan - 1 do
+				cells[i] = nil
+			end
+			ReleaseCell(self, cell)
+		end
+		return lineNum, colNum
+	end
 
 	-- Check previous cell
-	local cell, state
+	local cell
 	local prevCell = cells[colNum]
 	if prevCell == false then
 		error("overlapping cells at column "..colNum, 3)
 	elseif prevCell then
 		-- There is a cell here
-		state = self.states[prevCell]
-		if provider == nil or state.provider == provider then
+		font = font or prevCell._font
+		justification = justification or prevCell._justification
+		colSpan = colSpan or prevCell._colSpan
+		if provider == nil or prevCell._provider == provider then
 			-- Reuse existing cell
 			cell = prevCell
+			provider = cell._provider
 		else
 			-- A new cell is required
 			ReleaseCell(self, prevCell)
 			cells[colNum] = nil
-			state.provider = nil
 		end
+	else
+		-- Creating a new cell, use meaning full defaults
+		provider = provider or labelProvider
+		font = font or self.regularFont
+		justification = justification or "LEFT"
+		colSpan = colSpan or 1
 	end
 
-	if not state then state = {} end	-- Build or merge the cell state
-
-	local leftColumn = self.columns[colNum]
-
-	state.provider = provider or state.provider or labelProvider
-	state.colSpan = colSpan or state.colSpan or 1
-	state.justification = justification or state.justification or leftColumn.justification
-	state.font = font or state.font or self.regularFont
-	
-	provider, colSpan, justification, font = state.provider, state.colSpan, state.justification, state.font
-
-	local rightColNum = colNum+colSpan-1
-	local rightColumn = self.columns[rightColNum]
-
-	-- Unset
-	if value == nil then
-		for i = colNum, rightColNum do
-			if cells[i] then
-				ReleaseCell(self, cells[i])
-			end
-			cells[i] = nil
+	local tooltipWidth = #self.columns
+	local rightColNum
+	if colSpan > 0 then
+		rightColNum = colNum + colSpan - 1
+		if rightColNum > tooltipWidth then
+			error("ColSpan too big, cell extends beyond right-most column", 3)
 		end
-		return
+	else
+		-- Zero or negative: count back from right-most columns
+		rightColNum = math.max(colNum, tooltipWidth + colSpan)
+		-- Update colspan to its effective value
+		colSpan = 1 + rightColNum - colNum
 	end
 
 	-- Cleanup colspans
-	for i = colNum+1, rightColNum do
+	for i = colNum + 1, rightColNum do
 		local cell = cells[i]
 		if cell == false then
 			error("overlapping cells at column "..i, 3)
@@ -472,13 +475,16 @@ local function _SetCell(self, lineNum, colNum, value, font, justification, colSp
 	-- Create the cell and anchor it
 	if not cell then
 		cell = AcquireCell(self, provider)
-		cell:SetPoint("LEFT", leftColumn, "LEFT", 0, 0)
-		cell:SetPoint("RIGHT", rightColumn, "RIGHT", 0, 0)
+		cell:SetPoint("LEFT", self.columns[colNum], "LEFT", 0, 0)
+		cell:SetPoint("RIGHT", self.columns[rightColNum], "RIGHT", 0, 0)
 		cell:SetPoint("TOP", line, "TOP", 0, 0)
 		cell:SetPoint("BOTTOM", line, "BOTTOM", 0, 0)
 		cells[colNum] = cell
 	end
-	self.states[cell] = state
+	
+	-- Store the cell settings directly into the cell
+	-- That's a bit risky but is is really cheap compared to other ways to do it
+	cell._provider, cell._font, cell._justification, cell._colSpan = provider, font, justification, colSpan
 
 	-- Setup the cell content
 	local width, height = cell:SetupCell(tooltip, value, justification, font, ...)
@@ -494,7 +500,7 @@ local function _SetCell(self, lineNum, colNum, value, font, justification, colSp
 		self.colspans[colRange] = math.max(self.colspans[colRange] or 0, width)
 	else
 		-- Enlarge the column and tooltip if need be
-		EnlargeColumn(self, leftColumn, width)
+		EnlargeColumn(self, self.columns[colNum], width)
 	end
 
 	-- Enlarge the line and tooltip if need be
@@ -503,6 +509,12 @@ local function _SetCell(self, lineNum, colNum, value, font, justification, colSp
 		self:SetHeight(self.height)
 		line.height = height
 		line:SetHeight(height)
+	end
+	
+	if rightColNum < tooltipWidth then
+		return lineNum, rightColNum+1
+	else
+		return lineNum, nil
 	end
 end
 
@@ -523,25 +535,27 @@ local function CreateLine(self, font, ...)
 	line.height = 0
 	line:SetHeight(0)
 	line:Show()
-	for colNum = 1, #self.columns do
-			local value = select(colNum, ...)
-			if value ~= nil then
-				_SetCell(self, lineNum, colNum, value, font, nil, 1, labelProvider)
-			end
+	
+	local colNum = 1
+	for i = 1, #self.columns do
+		local value = select(i, ...)
+		if value ~= nil then
+			lineNum, colNum = _SetCell(self, lineNum, i, value, font, nil, 1, labelProvider)
+		end
 	end
-	return lineNum
+	return lineNum, colNum
 end
 
 function tipPrototype:AddLine(...)
-	local lineNum = CreateLine(self, self.regularFont, ...)
+	local lineNum, colNum = CreateLine(self, self.regularFont, ...)
 	ResizeColspans(self)
-	return lineNum
+	return lineNum, colNum
 end
 
 function tipPrototype:AddHeader(...)
-	local lineNum = CreateLine(self, self.headerFont, ...)
+	local lineNum, colNum = CreateLine(self, self.headerFont, ...)
 	ResizeColspans(self)
-	return lineNum
+	return lineNum, colNum
 end
 
 function tipPrototype:SetCell(lineNum, colNum, value, ...)
@@ -572,8 +586,9 @@ function tipPrototype:SetCell(lineNum, colNum, value, ...)
 		i, provider = i+1, arg
 	end
 
-	_SetCell(self, lineNum, colNum, value, font, justification, colSpan, provider, select(i, ...))
+	lineNum, colNum = _SetCell(self, lineNum, colNum, value, font, justification, colSpan, provider, select(i, ...))
 	ResizeColspans(self)
+	return lineNum, colNum
 end
 
 function tipPrototype:GetLineCount() return #self.lines end
