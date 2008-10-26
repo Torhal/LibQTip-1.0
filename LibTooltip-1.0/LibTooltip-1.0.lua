@@ -443,7 +443,7 @@ local function _SetCell(self, lineNum, colNum, value, font, justification, colSp
 		-- Creating a new cell, use meaning full defaults
 		provider = provider or labelProvider
 		font = font or self.regularFont
-		justification = justification or "LEFT"
+		justification = justification or self.columns[colNum].justification or "LEFT"
 		colSpan = colSpan or 1
 	end
 
@@ -476,11 +476,11 @@ local function _SetCell(self, lineNum, colNum, value, font, justification, colSp
 	if not cell then
 		cell = AcquireCell(self, provider)
 		cell:SetPoint("LEFT", self.columns[colNum], "LEFT", 0, 0)
-		cell:SetPoint("RIGHT", self.columns[rightColNum], "RIGHT", 0, 0)
 		cell:SetPoint("TOP", line, "TOP", 0, 0)
 		cell:SetPoint("BOTTOM", line, "BOTTOM", 0, 0)
 		cells[colNum] = cell
 	end
+	cell:SetPoint("RIGHT", self.columns[rightColNum], "RIGHT", 0, 0)
 	
 	-- Store the cell settings directly into the cell
 	-- That's a bit risky but is is really cheap compared to other ways to do it
