@@ -507,9 +507,6 @@ local function _SetCell(self, lineNum, colNum, value, font, justification, colSp
 end
 
 local function CreateLine(self, font, ...)
-	if select('#', ...) > #self.columns then
-		error(select('#', ...).." values provided for only "..#self.columns.." columns", 3)
-	end
 	local line = AcquireFrame(self)
 	local lineNum = #self.lines + 1
 	line:SetPoint('LEFT', self, 'LEFT', TOOLTIP_PADDING, 0)
