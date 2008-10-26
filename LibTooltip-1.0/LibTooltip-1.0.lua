@@ -405,7 +405,7 @@ function ReleaseCell(self, cell)
 		cell:Hide()
 		cell:SetParent(nil)
 		cell:ClearAllPoints()
-		self.states[cell][1]:ReleaseCell(cell)
+		self.states[cell].provider:ReleaseCell(cell)
 		self.states[cell] = nil
 	end
 end
@@ -422,13 +422,14 @@ local function _SetCell(self, lineNum, colNum, value, font, justification, colSp
 	elseif prevCell then
 		-- There is a cell here
 		state = self.states[prevCell]
-		if state[1] == provider then
+		if provider == nil or state.provider == provider then
 			-- Reuse existing cell
 			cell = prevCell
 		else
 			-- A new cell is required
 			ReleaseCell(self, prevCell)
 			cells[colNum] = nil
+			state.provider = nil
 		end
 	end
 
@@ -436,11 +437,12 @@ local function _SetCell(self, lineNum, colNum, value, font, justification, colSp
 
 	local leftColumn = self.columns[colNum]
 
-	state[1] = provider or labelProvider
-	state[2] = colSpan or state[2] or 1
-	state[3] = justification or state[3] or leftColumn.justification
-	state[4] = font or state[4] or self.regularFont
-	provider, colSpan, justification, font = unpack(state)
+	state.provider = provider or state.provider or labelProvider
+	state.colSpan = colSpan or state.colSpan or 1
+	state.justification = justification or state.justification or leftColumn.justification
+	state.font = font or state.font or self.regularFont
+	
+	provider, colSpan, justification, font = state.provider, state.colSpan, state.justification, state.font
 
 	local rightColNum = colNum+colSpan-1
 	local rightColumn = self.columns[rightColNum]
