@@ -1,5 +1,5 @@
 --[[
-Copyright (c) 2008, LibTooltip Development Team 
+Copyright (c) 2008, LibQTip Development Team 
 
 All rights reserved.
 
@@ -12,8 +12,8 @@ modification, are permitted provided that the following conditions are met:
       this list of conditions and the following disclaimer in the documentation 
       and/or other materials provided with the distribution.
     * Redistribution of a stand alone version is strictly prohibited without 
-      prior written authorization from the Lead of the LibTooltip Development Team. 
-    * Neither the name of the LibTooltip Development Team nor the names of its contributors 
+      prior written authorization from the Lead of the LibQTip Development Team. 
+    * Neither the name of the LibQTip Development Team nor the names of its contributors 
       may be used to endorse or promote products derived from this software without 
       specific prior written permission.
 
@@ -30,10 +30,10 @@ NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 --]]
 
-assert(LibStub, "LibTooltip-1.0 requires LibStub")
-local MAJOR, MINOR = "LibTooltip-1.0", 2
-local LibTooltip, oldminor = LibStub:NewLibrary(MAJOR, MINOR)
-if not LibTooltip then return end -- No upgrade needed
+assert(LibStub, "LibQTip-1.0 requires LibStub")
+local MAJOR, MINOR = "LibQTip-1.0", 2
+local LibQTip, oldminor = LibStub:NewLibrary(MAJOR, MINOR)
+if not LibQTip then return end -- No upgrade needed
 
 -- Internal constants to tweak the layout
 local TOOLTIP_PADDING = 10
@@ -52,35 +52,35 @@ local bgFrame = {
 -- Tables and locals
 ------------------------------------------------------------------------------
 
-LibTooltip.frameMetatable = LibTooltip.frameMetatable or {__index = CreateFrame("Frame")}
+LibQTip.frameMetatable = LibQTip.frameMetatable or {__index = CreateFrame("Frame")}
 
-LibTooltip.tipPrototype = LibTooltip.tipPrototype or setmetatable({}, LibTooltip.frameMetatable)
-LibTooltip.tipMetatable = LibTooltip.tipMetatable or {__index = LibTooltip.tipPrototype}
+LibQTip.tipPrototype = LibQTip.tipPrototype or setmetatable({}, LibQTip.frameMetatable)
+LibQTip.tipMetatable = LibQTip.tipMetatable or {__index = LibQTip.tipPrototype}
 
-LibTooltip.providerPrototype = LibTooltip.providerPrototype or {}
-LibTooltip.providerMetatable = LibTooltip.providerMetatable or {__index = LibTooltip.providerPrototype}
+LibQTip.providerPrototype = LibQTip.providerPrototype or {}
+LibQTip.providerMetatable = LibQTip.providerMetatable or {__index = LibQTip.providerPrototype}
 
-LibTooltip.cellPrototype = LibTooltip.cellPrototype or setmetatable({}, LibTooltip.frameMetatable)
-LibTooltip.cellMetatable = LibTooltip.cellMetatable or { __index = LibTooltip.cellPrototype }
+LibQTip.cellPrototype = LibQTip.cellPrototype or setmetatable({}, LibQTip.frameMetatable)
+LibQTip.cellMetatable = LibQTip.cellMetatable or { __index = LibQTip.cellPrototype }
 
-LibTooltip.activeTooltips = LibTooltip.activeTooltips or {}
-LibTooltip.tooltipHeap = LibTooltip.tooltipHeap or {}
+LibQTip.activeTooltips = LibQTip.activeTooltips or {}
+LibQTip.tooltipHeap = LibQTip.tooltipHeap or {}
 
-LibTooltip.frameHeap = LibTooltip.frameHeap or {}
+LibQTip.frameHeap = LibQTip.frameHeap or {}
 
-local tipPrototype = LibTooltip.tipPrototype
-local tipMetatable = LibTooltip.tipMetatable
+local tipPrototype = LibQTip.tipPrototype
+local tipMetatable = LibQTip.tipMetatable
 
-local providerPrototype = LibTooltip.providerPrototype
-local providerMetatable = LibTooltip.providerMetatable
+local providerPrototype = LibQTip.providerPrototype
+local providerMetatable = LibQTip.providerMetatable
 
-local cellPrototype = LibTooltip.cellPrototype
-local cellMetatable = LibTooltip.cellMetatable
+local cellPrototype = LibQTip.cellPrototype
+local cellMetatable = LibQTip.cellMetatable
 
-local activeTooltips = LibTooltip.activeTooltips
-local tooltipHeap = LibTooltip.tooltipHeap
+local activeTooltips = LibQTip.activeTooltips
+local tooltipHeap = LibQTip.tooltipHeap
 
-local frameHeap = LibTooltip.frameHeap
+local frameHeap = LibQTip.frameHeap
 
 -- Tooltip private methods
 local InitializeTooltip, FinalizeTooltip, ResetTooltipSize, ResizeColspans
@@ -90,7 +90,7 @@ local AcquireCell, ReleaseCell
 -- Public library API
 ------------------------------------------------------------------------------
 
-function LibTooltip:Acquire(key, ...)
+function LibQTip:Acquire(key, ...)
 	if key == nil then
 		error("attempt to use a nil key", 2)
 	end
@@ -108,14 +108,14 @@ function LibTooltip:Acquire(key, ...)
 	return tooltip
 end
 
-function LibTooltip:IsAcquired(key)
+function LibQTip:IsAcquired(key)
 	if key == nil then
 		error("attempt to use a nil key", 2)
 	end
 	return not not activeTooltips[key]
 end
 
-function LibTooltip:Release(tooltip)
+function LibQTip:Release(tooltip)
 	local key = tooltip and tooltip.key
 	if not key or activeTooltips[key] ~= tooltip then return end
 	tooltip:Hide()
@@ -124,7 +124,7 @@ function LibTooltip:Release(tooltip)
 	activeTooltips[key] = nil
 end
 
-function LibTooltip:IterateTooltips()
+function LibQTip:IterateTooltips()
 	return pairs(activeTooltips)
 end
 
@@ -182,7 +182,7 @@ end
 
 -- Cell provider factory
 
-function LibTooltip:CreateCellProvider(baseProvider)
+function LibQTip:CreateCellProvider(baseProvider)
 	local cellBaseMetatable, cellBasePrototype
 	if baseProvider and baseProvider.GetCellPrototype then
 		cellBasePrototype, cellBaseMetatable = baseProvider:GetCellPrototype()
@@ -202,17 +202,17 @@ end
 -- Basic label provider
 ------------------------------------------------------------------------------
 
-if not LibTooltip.LabelProvider then
-	LibTooltip.LabelProvider, LibTooltip.LabelPrototype = LibTooltip:CreateCellProvider()
+if not LibQTip.LabelProvider then
+	LibQTip.LabelProvider, LibQTip.LabelPrototype = LibQTip:CreateCellProvider()
 end
 
-local labelProvider = LibTooltip.LabelProvider
-local labelPrototype = LibTooltip.LabelPrototype
+local labelProvider = LibQTip.LabelProvider
+local labelPrototype = LibQTip.LabelPrototype
 
 function labelPrototype:InitializeCell()
 	self.fontString = self:CreateFontString()
 	self.fontString:SetAllPoints(self)
-  self.fontString:SetFontObject(GameTooltipText)
+	self.fontString:SetFontObject(GameTooltipText)
 end
 
 function labelPrototype:SetupCell(tooltip, value, justification, font, ...)
