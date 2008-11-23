@@ -31,7 +31,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 --]]
 
 assert(LibStub, "LibQTip-1.0 requires LibStub")
-local MAJOR, MINOR = "LibQTip-1.0", 2
+local MAJOR, MINOR = "LibQTip-1.0", 3
 local LibQTip, oldminor = LibStub:NewLibrary(MAJOR, MINOR)
 if not LibQTip then return end -- No upgrade needed
 
@@ -300,7 +300,7 @@ function tipPrototype:AddColumn(justification)
 	local column = AcquireFrame(self)
 	column.justification = justification
 	column.width = 0
-	column:SetWidth(0)
+	column:SetWidth(1)
 	column:SetPoint("TOP", self, "TOP", 0, -TOOLTIP_PADDING)
 	column:SetPoint("BOTTOM", self, "BOTTOM", 0, TOOLTIP_PADDING)
 	if colNum > 1 then
@@ -345,9 +345,7 @@ function tipPrototype:Clear()
 		column.width = 0
 		column:SetWidth(0)
 	end
-	for k in pairs(self.colspans) do
-		self.colspans[k] = nil
-	end
+	wipe(self.colspans)
 	ResetTooltipSize(self)
 end
 
@@ -401,6 +399,7 @@ function ReleaseCell(self, cell)
 		cell:SetParent(nil)
 		cell:ClearAllPoints()
 		cell._provider:ReleaseCell(cell)
+		cell._provider, cell._font, cell._justification, cell._colSpan = nil
 	end
 end
 
@@ -519,6 +518,9 @@ local function _SetCell(self, lineNum, colNum, value, font, justification, colSp
 end
 
 local function CreateLine(self, font, ...)
+	if #self.columns == 0 then
+		error("column layout should be defined before adding line", 3)
+	end
 	local line = AcquireFrame(self)
 	local lineNum = #self.lines + 1
 	line:SetPoint('LEFT', self, 'LEFT', TOOLTIP_PADDING, 0)
