@@ -31,7 +31,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 --]]
 
 assert(LibStub, "LibQTip-1.0 requires LibStub")
-local MAJOR, MINOR = "LibQTip-1.0", 3
+local MAJOR, MINOR = "LibQTip-1.0", 4
 local LibQTip, oldminor = LibStub:NewLibrary(MAJOR, MINOR)
 if not LibQTip then return end -- No upgrade needed
 
@@ -376,7 +376,7 @@ function ResizeColspans(self)
 	if not self:IsShown() then return end
 	local columns = self.columns
 	for colRange, width in pairs(self.colspans) do
-		local left, right = colRange:match("(%d)%-(%d)")
+		local left, right = colRange:match("^(%d+)%-(%d+)$")
 		left, right = tonumber(left), tonumber(right)
 		for col = left, right-1 do 
 			width = width - columns[col].width - CELL_MARGIN
