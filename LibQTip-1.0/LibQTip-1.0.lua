@@ -486,7 +486,7 @@ local function _SetCell(self, lineNum, colNum, value, font, justification, colSp
 	cell._provider, cell._font, cell._justification, cell._colSpan = provider, font, justification, colSpan
 
 	-- Setup the cell content
-	local width, height = cell:SetupCell(tooltip, value, justification, font, ...)
+	local width, height = cell:SetupCell(self, value, justification, font, ...)
 
 	-- Enforce cell size
 	cell:SetWidth(width)
