@@ -31,7 +31,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 --]]
 
 assert(LibStub, "LibQTip-1.0 requires LibStub")
-local MAJOR, MINOR = "LibQTip-1.0", 4
+local MAJOR, MINOR = "LibQTip-1.0", 5
 local LibQTip, oldminor = LibStub:NewLibrary(MAJOR, MINOR)
 if not LibQTip then return end -- No upgrade needed
 
