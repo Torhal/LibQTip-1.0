@@ -1,36 +1,5 @@
---[[
-Copyright (c) 2008, LibQTip Development Team 
-
-All rights reserved.
-
-Redistribution and use in source and binary forms, with or without 
-modification, are permitted provided that the following conditions are met:
-
-    * Redistributions of source code must retain the above copyright notice, 
-      this list of conditions and the following disclaimer.
-    * Redistributions in binary form must reproduce the above copyright notice, 
-      this list of conditions and the following disclaimer in the documentation 
-      and/or other materials provided with the distribution.
-    * Redistribution of a stand alone version is strictly prohibited without 
-      prior written authorization from the Lead of the LibQTip Development Team. 
-    * Neither the name of the LibQTip Development Team nor the names of its contributors 
-      may be used to endorse or promote products derived from this software without 
-      specific prior written permission.
-
-THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-"AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR
-CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
-EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
-PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
-PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
-LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
-NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
---]]
-
 assert(LibStub, "LibQTip-1.0 requires LibStub")
+
 local MAJOR, MINOR = "LibQTip-1.0", 5
 local LibQTip, oldminor = LibStub:NewLibrary(MAJOR, MINOR)
 if not LibQTip then return end -- No upgrade needed
@@ -51,7 +20,6 @@ local bgFrame = {
 ------------------------------------------------------------------------------
 -- Tables and locals
 ------------------------------------------------------------------------------
-
 LibQTip.frameMetatable = LibQTip.frameMetatable or {__index = CreateFrame("Frame")}
 
 LibQTip.tipPrototype = LibQTip.tipPrototype or setmetatable({}, LibQTip.frameMetatable)
@@ -89,7 +57,6 @@ local AcquireCell, ReleaseCell
 ------------------------------------------------------------------------------
 -- Public library API
 ------------------------------------------------------------------------------
-
 function LibQTip:Acquire(key, ...)
 	if key == nil then
 		error("attempt to use a nil key", 2)
@@ -131,7 +98,6 @@ end
 ------------------------------------------------------------------------------
 -- Frame heap
 ------------------------------------------------------------------------------
-
 local function AcquireFrame(parent)
 	local frame = tremove(frameHeap) or CreateFrame("Frame")
 	frame:SetParent(parent)
@@ -148,9 +114,6 @@ end
 ------------------------------------------------------------------------------
 -- CellProvider and Cell
 ------------------------------------------------------------------------------
-
--- Provider prototype
-
 function providerPrototype:AcquireCell(tooltip)
 	local cell = tremove(self.heap)
 	if not cell then
@@ -180,8 +143,6 @@ function providerPrototype:IterateCells()
 	return pairs(self.cells)
 end
 
--- Cell provider factory
-
 function LibQTip:CreateCellProvider(baseProvider)
 	local cellBaseMetatable, cellBasePrototype
 	if baseProvider and baseProvider.GetCellPrototype then
@@ -201,7 +162,6 @@ end
 ------------------------------------------------------------------------------
 -- Basic label provider
 ------------------------------------------------------------------------------
-
 if not LibQTip.LabelProvider then
 	LibQTip.LabelProvider, LibQTip.LabelPrototype = LibQTip:CreateCellProvider()
 end
@@ -227,7 +187,6 @@ end
 ------------------------------------------------------------------------------
 -- Helpers
 ------------------------------------------------------------------------------
-
 local function checkFont(font, level, silent)
 	if not font or type(font) ~= 'table' or type(font.IsObjectType) ~= 'function' or not font:IsObjectType("Font") then
 		if silent then
@@ -253,7 +212,6 @@ end
 ------------------------------------------------------------------------------
 -- Tooltip prototype
 ------------------------------------------------------------------------------
-
 function InitializeTooltip(self, key)
 	-- (Re)set frame settings
 	self:SetBackdrop(bgFrame)
@@ -272,10 +230,21 @@ function InitializeTooltip(self, key)
 
 	self.regularFont = GameTooltipText
 	self.headerFont = GameTooltipHeaderText
-	
+
+	self.labelProvider = labelProvider
+
 	self:SetScript('OnShow', ResizeColspans)
 
 	ResetTooltipSize(self)
+end
+
+function tipPrototype:SetDefaultProvider(myProvider)
+	if not myProvider then return end
+	self.labelProvider = myProvider
+end
+
+function tipPrototype:GetDefaultProvider()
+	return self.labelProvider
 end
 
 function tipPrototype:SetColumnLayout(numColumns, ...)
@@ -439,8 +408,8 @@ local function _SetCell(self, lineNum, colNum, value, font, justification, colSp
 			cells[colNum] = nil
 		end
 	else
-		-- Creating a new cell, use meaning full defaults
-		provider = provider or labelProvider
+		-- Creating a new cell, use meaningful defaults
+		provider = provider or self.labelProvider
 		font = font or self.regularFont
 		justification = justification or self.columns[colNum].justification or "LEFT"
 		colSpan = colSpan or 1
@@ -482,7 +451,7 @@ local function _SetCell(self, lineNum, colNum, value, font, justification, colSp
 	cell:SetPoint("RIGHT", self.columns[rightColNum], "RIGHT", 0, 0)
 	
 	-- Store the cell settings directly into the cell
-	-- That's a bit risky but is is really cheap compared to other ways to do it
+	-- That's a bit risky but is really cheap compared to other ways to do it
 	cell._provider, cell._font, cell._justification, cell._colSpan = provider, font, justification, colSpan
 
 	-- Setup the cell content
@@ -542,7 +511,7 @@ local function CreateLine(self, font, ...)
 	for i = 1, #self.columns do
 		local value = select(i, ...)
 		if value ~= nil then
-			lineNum, colNum = _SetCell(self, lineNum, i, value, font, nil, 1, labelProvider)
+			lineNum, colNum = _SetCell(self, lineNum, i, value, font, nil, 1, self.labelProvider)
 		end
 	end
 	return lineNum, colNum
@@ -598,7 +567,7 @@ function tipPrototype:GetLineCount() return #self.lines end
 function tipPrototype:GetColumnCount() return #self.columns end
 
 ------------------------------------------------------------------------------
--- "Smart" Anchoring (work in progress)
+-- "Smart" Anchoring
 ------------------------------------------------------------------------------
 local function GetTipAnchor(frame)
 	local x,y = frame:GetCenter()
