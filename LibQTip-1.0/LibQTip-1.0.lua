@@ -1,6 +1,6 @@
 assert(LibStub, "LibQTip-1.0 requires LibStub")
 
-local MAJOR, MINOR = "LibQTip-1.0", 5
+local MAJOR, MINOR = "LibQTip-1.0", 6
 local LibQTip, oldminor = LibStub:NewLibrary(MAJOR, MINOR)
 if not LibQTip then return end -- No upgrade needed
 
@@ -93,22 +93,6 @@ end
 
 function LibQTip:IterateTooltips()
 	return pairs(activeTooltips)
-end
-
-------------------------------------------------------------------------------
--- Frame heap
-------------------------------------------------------------------------------
-local function AcquireFrame(parent)
-	local frame = tremove(frameHeap) or CreateFrame("Frame")
-	frame:SetParent(parent)
-	return frame
-end
-
-local function ReleaseFrame(frame)
-	frame:Hide()
-	frame:SetParent(nil)
-	frame:ClearAllPoints()
-	tinsert(frameHeap, frame)
 end
 
 ------------------------------------------------------------------------------
@@ -227,6 +211,8 @@ function InitializeTooltip(self, key)
 	self.columns = self.columns or {}
 	self.lines = self.lines or {}
 	self.colspans = self.colspans or {}
+	self.lineHeap = self.lineHeap or {}
+	self.columnHeap = self.columnHeap or {}
 
 	self.regularFont = GameTooltipText
 	self.headerFont = GameTooltipHeaderText
@@ -262,16 +248,49 @@ function tipPrototype:SetColumnLayout(numColumns, ...)
 	end	
 end
 
+function tipPrototype:AcquireLine(lineNum)
+	local line = self.lineHeap[lineNum]
+	if not line then
+		line = CreateFrame("Frame", nil, self)		
+		line.cells = {}
+		self.lineHeap[lineNum] = line
+	end
+	return line
+end
+
+function tipPrototype:ReleaseLine(line)
+	for i, cell in pairs(line.cells) do
+		ReleaseCell(self, cell)
+	end
+	wipe(line.cells)
+	line:ClearAllPoints()
+	line:Hide()
+end
+
+function tipPrototype:AcquireColumn(colNum)
+	local column = self.columnHeap[colNum]
+	if not column then
+		column = CreateFrame("Frame", nil, self)		
+		self.columnHeap[colNum] = column
+	end
+	return column
+end
+
+function tipPrototype:ReleaseColumn(column)
+	column:ClearAllPoints()
+	column:Hide()
+end
+
 function tipPrototype:AddColumn(justification)
 	justification = justification or "LEFT"
 	checkJustification(justification, 2)
 	local colNum = #self.columns + 1
-	local column = AcquireFrame(self)
+	local column = self:AcquireColumn(colNum)
 	column.justification = justification
 	column.width = 0
 	column:SetWidth(1)
-	column:SetPoint("TOP", self, "TOP", 0, -TOOLTIP_PADDING)
-	column:SetPoint("BOTTOM", self, "BOTTOM", 0, TOOLTIP_PADDING)
+	column:SetPoint("TOP", self)
+	column:SetPoint("BOTTOM", self)
 	if colNum > 1 then
 		column:SetPoint("LEFT", self.columns[colNum-1], "RIGHT", CELL_MARGIN, 0)
 		self.width = self.width + CELL_MARGIN
@@ -287,8 +306,7 @@ end
 function FinalizeTooltip(self)
 	self:Clear()
 	for i, column in ipairs(self.columns) do
-		column:Hide()
-		ReleaseFrame(column)
+		self:ReleaseColumn(column)
 		self.columns[i] = nil
 	end
 end
@@ -302,17 +320,12 @@ end
 
 function tipPrototype:Clear()
 	for i, line in ipairs(self.lines) do
-		for j, cell in ipairs(line.cells) do
-			ReleaseCell(self, cell)
-			line.cells[j] = nil
-		end
-		line:Hide()
-		ReleaseFrame(line)
+		self:ReleaseLine(line)
 		self.lines[i] = nil
 	end
 	for i, column in ipairs(self.columns) do
 		column.width = 0
-		column:SetWidth(0)
+		column:SetWidth(1)
 	end
 	wipe(self.colspans)
 	ResetTooltipSize(self)
@@ -443,23 +456,21 @@ local function _SetCell(self, lineNum, colNum, value, font, justification, colSp
 	-- Create the cell and anchor it
 	if not cell then
 		cell = AcquireCell(self, provider)
-		cell:SetPoint("LEFT", self.columns[colNum], "LEFT", 0, 0)
-		cell:SetPoint("TOP", line, "TOP", 0, 0)
-		cell:SetPoint("BOTTOM", line, "BOTTOM", 0, 0)
 		cells[colNum] = cell
 	end
-	cell:SetPoint("RIGHT", self.columns[rightColNum], "RIGHT", 0, 0)
 	
+	-- Anchor the cell
+	cell:SetPoint("LEFT", self.columns[colNum])
+	cell:SetPoint("RIGHT", self.columns[rightColNum])
+	cell:SetPoint("TOP", line)
+	cell:SetPoint("BOTTOM", line)
+
 	-- Store the cell settings directly into the cell
 	-- That's a bit risky but is really cheap compared to other ways to do it
 	cell._provider, cell._font, cell._justification, cell._colSpan = provider, font, justification, colSpan
 
 	-- Setup the cell content
 	local width, height = cell:SetupCell(self, value, justification, font, ...)
-
-	-- Enforce cell size
-	cell:SetWidth(width)
-	cell:SetHeight(height)
 	cell:Show()
 
 	if colSpan > 1 then
@@ -490,8 +501,8 @@ local function CreateLine(self, font, ...)
 	if #self.columns == 0 then
 		error("column layout should be defined before adding line", 3)
 	end
-	local line = AcquireFrame(self)
 	local lineNum = #self.lines + 1
+	local line = self:AcquireLine(lineNum)
 	line:SetPoint('LEFT', self, 'LEFT', TOOLTIP_PADDING, 0)
 	line:SetPoint('RIGHT', self, 'RIGHT', -TOOLTIP_PADDING, 0)
 	if lineNum > 1 then
@@ -504,7 +515,7 @@ local function CreateLine(self, font, ...)
 	self.lines[lineNum] = line
 	line.cells = line.cells or {}
 	line.height = 0
-	line:SetHeight(0)
+	line:SetHeight(1)
 	line:Show()
 	
 	local colNum = 1
