@@ -34,8 +34,6 @@ LibQTip.cellMetatable = LibQTip.cellMetatable or { __index = LibQTip.cellPrototy
 LibQTip.activeTooltips = LibQTip.activeTooltips or {}
 LibQTip.tooltipHeap = LibQTip.tooltipHeap or {}
 
-LibQTip.frameHeap = LibQTip.frameHeap or {}
-
 local tipPrototype = LibQTip.tipPrototype
 local tipMetatable = LibQTip.tipMetatable
 
@@ -47,8 +45,6 @@ local cellMetatable = LibQTip.cellMetatable
 
 local activeTooltips = LibQTip.activeTooltips
 local tooltipHeap = LibQTip.tooltipHeap
-
-local frameHeap = LibQTip.frameHeap
 
 -- Tooltip private methods
 local InitializeTooltip, FinalizeTooltip, ResetTooltipSize, ResizeColspans
@@ -185,7 +181,7 @@ end
 local function checkJustification(justification, level, silent)
 	if justification ~= "LEFT" and justification ~= "CENTER" and justification ~= "RIGHT" then
 		if silent then
-			return false 
+			return false
 		else
 			error("invalid justification, must one of LEFT, CENTER or RIGHT, not: "..tostring(justification), level+1)
 		end
@@ -202,7 +198,7 @@ function InitializeTooltip(self, key)
 	self:SetBackdropColor(0.09, 0.09, 0.09)
 	self:SetBackdropBorderColor(1, 1, 1)
 	self:SetAlpha(0.9)
-	self:SetScale(1.0)	
+	self:SetScale(1.0)
 	self:SetFrameStrata("TOOLTIP")
 	self:SetClampedToScreen(false)
 
@@ -245,13 +241,13 @@ function tipPrototype:SetColumnLayout(numColumns, ...)
 		else
 			self:AddColumn(justification)
 		end
-	end	
+	end
 end
 
 function tipPrototype:AcquireLine(lineNum)
 	local line = self.lineHeap[lineNum]
 	if not line then
-		line = CreateFrame("Frame", nil, self)		
+		line = CreateFrame("Frame", nil, self)
 		line.cells = {}
 		self.lineHeap[lineNum] = line
 	end
@@ -270,7 +266,7 @@ end
 function tipPrototype:AcquireColumn(colNum)
 	local column = self.columnHeap[colNum]
 	if not column then
-		column = CreateFrame("Frame", nil, self)		
+		column = CreateFrame("Frame", nil, self)
 		self.columnHeap[colNum] = column
 	end
 	return column
@@ -350,7 +346,7 @@ local function EnlargeColumn(self, column, width)
 		self.width = self.width + width - column.width
 		self:SetWidth(self.width)
 		column.width = width
-		column:SetWidth(width)			
+		column:SetWidth(width)
 	end
 end
 
@@ -360,7 +356,7 @@ function ResizeColspans(self)
 	for colRange, width in pairs(self.colspans) do
 		local left, right = colRange:match("^(%d+)%-(%d+)$")
 		left, right = tonumber(left), tonumber(right)
-		for col = left, right-1 do 
+		for col = left, right-1 do
 			width = width - columns[col].width - CELL_MARGIN
 		end
 		EnlargeColumn(self, columns[right], width)
@@ -371,7 +367,7 @@ end
 function AcquireCell(self, provider)
 	local cell = provider:AcquireCell(self)
 	cell:SetParent(self)
-	cell:SetFrameLevel(self:GetFrameLevel()+1)	
+	cell:SetFrameLevel(self:GetFrameLevel()+1)
 	return cell
 end
 
@@ -388,7 +384,7 @@ end
 local function _SetCell(self, lineNum, colNum, value, font, justification, colSpan, provider, ...)
 	local line = self.lines[lineNum]
 	local cells = line.cells
-	
+
 	-- Unset: be quick
 	if value == nil then
 		local cell = cells[colNum]
@@ -453,7 +449,7 @@ local function _SetCell(self, lineNum, colNum, value, font, justification, colSp
 		cells[i] = false
 	end
 
-	-- Create the cell and anchor it
+	-- Create the cell
 	if not cell then
 		cell = AcquireCell(self, provider)
 		cells[colNum] = cell
@@ -489,7 +485,7 @@ local function _SetCell(self, lineNum, colNum, value, font, justification, colSp
 		line.height = height
 		line:SetHeight(height)
 	end
-	
+
 	if rightColNum < tooltipWidth then
 		return lineNum, rightColNum+1
 	else
@@ -517,7 +513,7 @@ local function CreateLine(self, font, ...)
 	line.height = 0
 	line:SetHeight(1)
 	line:Show()
-	
+
 	local colNum = 1
 	for i = 1, #self.columns do
 		local value = select(i, ...)
