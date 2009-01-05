@@ -8,15 +8,6 @@ if not LibQTip then return end -- No upgrade needed
 local TOOLTIP_PADDING = 10
 local CELL_MARGIN = 3
 
-local bgFrame = {
-	edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
-	bgFile = "Interface\\Tooltips\\UI-Tooltip-Background",
-	tile = true,
-	tileSize = 16,
-	edgeSize = 16,
-	insets = {left = 5, right = 5, top = 5, bottom = 5}
-}
-
 ------------------------------------------------------------------------------
 -- Tables and locals
 ------------------------------------------------------------------------------
@@ -194,11 +185,11 @@ end
 ------------------------------------------------------------------------------
 function InitializeTooltip(self, key)
 	-- (Re)set frame settings
-	self:SetBackdrop(bgFrame)
-	self:SetBackdropColor(0.09, 0.09, 0.09)
-	self:SetBackdropBorderColor(1, 1, 1)
+	self:SetBackdrop(GameTooltip:GetBackdrop())
+	self:SetBackdropColor(GameTooltip:GetBackdropColor())
+	self:SetBackdropBorderColor(GameTooltip:GetBackdropBorderColor())
+	self:SetScale(GameTooltip:GetScale())
 	self:SetAlpha(0.9)
-	self:SetScale(1.0)
 	self:SetFrameStrata("TOOLTIP")
 	self:SetClampedToScreen(false)
 
