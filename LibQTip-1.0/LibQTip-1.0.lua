@@ -44,6 +44,15 @@ local AcquireCell, ReleaseCell
 ------------------------------------------------------------------------------
 -- Public library API
 ------------------------------------------------------------------------------
+
+--- Create or retrieve the tooltip with the given key. 
+-- If additional arguments are passed, they are passed to :SetColumnLayout for the acquired tooltip.
+-- @name LibQTip:Acquire(key[, numColumns, column1Justification, column2justification, ...])
+-- @param key string or table - the tooltip key. Any value that can be used as a table key is accepted though you should try to provide unique keys to avoid conflicts. 
+-- Numbers and booleans should be avoided and strings should be carefully chosen to avoid namespace clashes - no "MyTooltip" - you have been warned! 
+-- @return tooltip Frame object - the acquired tooltip. 
+-- @usage Acquire a tooltip with at least 5 columns, justification : left, center, left, left, left
+-- <pre>local tip = LibStub('LibQTip-1.0'):Acquire('MyFooBarTooltip', 5, "LEFT", "CENTER")</pre>
 function LibQTip:Acquire(key, ...)
 	if key == nil then
 		error("attempt to use a nil key", 2)
