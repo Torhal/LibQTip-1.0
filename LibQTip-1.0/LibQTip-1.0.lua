@@ -208,7 +208,9 @@ function InitializeTooltip(self, key)
 	self.lines = self.lines or {}
 	self.colspans = self.colspans or {}
 	self.lineHeap = self.lineHeap or {}
+	self.lineHeap[key] = self.lineHeap[key] or {}
 	self.columnHeap = self.columnHeap or {}
+	self.columnHeap[key] = self.columnHeap[key] or {}
 
 	self.regularFont = GameTooltipText
 	self.headerFont = GameTooltipHeaderText
@@ -225,9 +227,7 @@ function tipPrototype:SetDefaultProvider(myProvider)
 	self.labelProvider = myProvider
 end
 
-function tipPrototype:GetDefaultProvider()
-	return self.labelProvider
-end
+function tipPrototype:GetDefaultProvider() return self.labelProvider end
 
 function tipPrototype:SetColumnLayout(numColumns, ...)
 	if type(numColumns) ~= "number" or numColumns < 1  then
@@ -245,11 +245,11 @@ function tipPrototype:SetColumnLayout(numColumns, ...)
 end
 
 function tipPrototype:AcquireLine(lineNum)
-	local line = self.lineHeap[lineNum]
+	local line = self.lineHeap[self.key][lineNum]
 	if not line then
 		line = CreateFrame("Frame", nil, self)
 		line.cells = {}
-		self.lineHeap[lineNum] = line
+		self.lineHeap[self.key][lineNum] = line
 	end
 	return line
 end
@@ -264,10 +264,10 @@ function tipPrototype:ReleaseLine(line)
 end
 
 function tipPrototype:AcquireColumn(colNum)
-	local column = self.columnHeap[colNum]
+	local column = self.columnHeap[self.key][colNum]
 	if not column then
 		column = CreateFrame("Frame", nil, self)
-		self.columnHeap[colNum] = column
+		self.columnHeap[self.key][colNum] = column
 	end
 	return column
 end
