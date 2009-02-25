@@ -211,13 +211,9 @@ function InitializeTooltip(self, key)
 	self.lineHeap[key] = self.lineHeap[key] or {}
 	self.columnHeap = self.columnHeap or {}
 	self.columnHeap[key] = self.columnHeap[key] or {}
-
 	self.regularFont = GameTooltipText
 	self.headerFont = GameTooltipHeaderText
-
 	self.labelProvider = labelProvider
-
-	self:SetScript('OnShow', ResizeColspans)
 
 	ResetTooltipSize(self)
 end
@@ -351,7 +347,6 @@ local function EnlargeColumn(self, column, width)
 end
 
 function ResizeColspans(self)
-	if not self:IsShown() then return end
 	local columns = self.columns
 	for colRange, width in pairs(self.colspans) do
 		local left, right = colRange:match("^(%d+)%-(%d+)$")
