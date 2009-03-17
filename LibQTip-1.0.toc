@@ -7,5 +7,7 @@
 ## X-Category: Library, Tooltip
 ## X-License: Ace3 BSD-like license
 
+#@no-lib-strip@
 LibStub\LibStub.lua
-LibQTip-1.0\LibQTip-1.0.lua
+#@end-no-lib-strip@
+LibQTip-1.0.lua
