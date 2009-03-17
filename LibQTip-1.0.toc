@@ -10,4 +10,4 @@
 #@no-lib-strip@
 LibStub\LibStub.lua
 #@end-no-lib-strip@
-LibQTip-1.0.lua
+lib.xml
