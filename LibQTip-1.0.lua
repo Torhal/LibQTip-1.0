@@ -1,6 +1,6 @@
 assert(LibStub, "LibQTip-1.0 requires LibStub")
 
-local MAJOR, MINOR = "LibQTip-1.0", 9
+local MAJOR, MINOR = "LibQTip-1.0", 10
 local LibQTip, oldminor = LibStub:NewLibrary(MAJOR, MINOR)
 if not LibQTip then return end -- No upgrade needed
 
@@ -245,6 +245,9 @@ function InitializeTooltip(self, key)
 	-- Data depending on key
 	lineHeap[key] = lineHeap[key] or {}
 	columnHeap[key] = columnHeap[key] or {}
+	
+	-- Reset auto-hiding
+	self:SetAutoHideDelay(nil)
 	
 	self:Hide()
 		
@@ -595,6 +598,45 @@ end
 function tipPrototype:GetLineCount() return #self.lines end
 
 function tipPrototype:GetColumnCount() return #self.columns end
+
+------------------------------------------------------------------------------
+-- Auto-hiding feature
+------------------------------------------------------------------------------
+
+-- Script of the auto-hiding child frame
+local function AutoHideTimerFrame_OnUpdate(self, elapsed)
+  if MouseIsOver(self:GetParent()) or (self.alternateFrame and MouseIsOver(self.alternateFrame)) then
+    self.elapsed = 0
+  else
+    self.elapsed = self.elapsed + elapsed
+    if self.elapsed > self.delay then
+      self:GetParent():Hide()
+    end
+  end
+end
+
+-- Usage:
+-- :SetAutoHideDelay(0.25) => hides after 0.25sec outside of the tooltip
+-- :SetAutoHideDelay(0.25, someFrame) => hides after 0.25sec outside of both the tooltip and someFrame
+-- :SetAutoHideDelay() => disable auto-hiding (default)
+function tipPrototype:SetAutoHideDelay(delay, alternateFrame)
+  delay = tonumber(delay) or 0
+  local timerFrame = self.autoHideTimerFrame
+  if delay > 0 then
+    if not timerFrame then
+      timerFrame = CreateFrame("Frame", nil, self)
+      timerFrame:SetScript('OnUpdate', AutoHideTimerFrame_OnUpdate)
+      self.autoHideTimerFrame = timerFrame
+    end
+    timerFrame.elapsed = 0
+    timerFrame.delay = delay
+    timerFrame.alternateFrame = alternateFrame
+    timerFrame:Show()
+  elseif timerFrame then
+    timerFrame.alternateFrame = nil
+    timerFrame:Hide()
+  end
+end
 
 ------------------------------------------------------------------------------
 -- "Smart" Anchoring
