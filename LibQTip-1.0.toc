@@ -1,4 +1,4 @@
-## Interface: 30000
+## Interface: 30100
 ## Title: Lib: QTip-1.0
 ## Notes: Library providing multi-column tooltips.
 ## Author: Torhal, Kaelten, Tristanian, Adirelle
