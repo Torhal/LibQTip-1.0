@@ -376,10 +376,6 @@ function tipPrototype:SetTipSize(width, height)
 	self.width = width
 end
 
-function tipPrototype:GetTipSize()
-	return self.width, self.height
-end
-
 local sliderBackdrop = {
 	["bgFile"] = [[Interface\Buttons\UI-SliderBar-Background]],
 	["edgeFile"] = [[Interface\Buttons\UI-SliderBar-Border]],
