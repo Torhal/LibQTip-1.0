@@ -147,8 +147,6 @@ function providerPrototype:AcquireCell(tooltip)
 		if type(cell.InitializeCell) == 'function' then
 			cell:InitializeCell()
 		end
-		cell:SetParent(tooltip.scrollChild)
-		cell:SetFrameLevel(tooltip.scrollChild:GetFrameLevel() + 1)
 	end
 	self.cells[cell] = true
 	return cell
@@ -313,10 +311,11 @@ end
 function tipPrototype:AcquireLine(lineNum)
 	local line = lineHeap[self.key][lineNum]
 	if not line then
-		line = CreateFrame("Frame", nil, self)
+		line = CreateFrame("Frame")
 		line.cells = {}
 		lineHeap[self.key][lineNum] = line
 	end
+	line:SetParent(self.scrollChild)
 	return line
 end
 
@@ -326,20 +325,23 @@ function tipPrototype:ReleaseLine(line)
 	end
 	wipe(line.cells)
 	line:ClearAllPoints()
+	line:SetParent(nil)
 	line:Hide()
 end
 
 function tipPrototype:AcquireColumn(colNum)
 	local column = columnHeap[self.key][colNum]
 	if not column then
-		column = CreateFrame("Frame", nil, self)
+		column = CreateFrame("Frame")
 		columnHeap[self.key][colNum] = column
 	end
+	column:SetParent(self.scrollChild)
 	return column
 end
 
 function tipPrototype:ReleaseColumn(column)
 	column:ClearAllPoints()
+	column:SetParent(nil)
 	column:Hide()
 end
 
@@ -349,6 +351,7 @@ function tipPrototype:AddColumn(justification)
 
 	local colNum = #self.columns + 1
 	local column = self:AcquireColumn(colNum)
+	column:SetParent(self.scrollChild)
 	column.justification = justification
 	column.width = 0
 	column:SetWidth(1)
