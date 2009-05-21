@@ -1,6 +1,6 @@
 assert(LibStub, "LibQTip-1.0 requires LibStub")
 
-local MAJOR, MINOR = "LibQTip-1.0", 12 -- the minor should be manually increased
+local MAJOR, MINOR = "LibQTip-1.0", 13 -- the minor should be manually increased
 local LibQTip, oldminor = LibStub:NewLibrary(MAJOR, MINOR)
 if not LibQTip then return end -- No upgrade needed
 
@@ -746,7 +746,7 @@ local function AutoHideTimerFrame_OnUpdate(self, elapsed)
 	else
 		self.elapsed = self.elapsed + elapsed
 		if self.elapsed > self.delay then
-			self:GetParent():Hide()
+			LibQTip:Release(self:GetParent())
 		end
 	end
 end
