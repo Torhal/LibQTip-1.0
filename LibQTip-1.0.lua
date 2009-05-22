@@ -1,6 +1,6 @@
 assert(LibStub, "LibQTip-1.0 requires LibStub")
 
-local MAJOR, MINOR = "LibQTip-1.0", 13 -- the minor should be manually increased
+local MAJOR, MINOR = "LibQTip-1.0", 14 -- the minor should be manually increased
 local LibQTip, oldminor = LibStub:NewLibrary(MAJOR, MINOR)
 if not LibQTip then return end -- No upgrade needed
 
@@ -43,8 +43,7 @@ LibQTip.cellMetatable = LibQTip.cellMetatable or { __index = LibQTip.cellPrototy
 
 LibQTip.activeTooltips = LibQTip.activeTooltips or {}
 LibQTip.tooltipHeap = LibQTip.tooltipHeap or {}
-LibQTip.lineHeap = LibQTip.lineHeap or {}
-LibQTip.columnHeap = LibQTip.columnHeap or {}
+LibQTip.frameHeap = LibQTip.frameHeap or {}
 
 LibQTip.layoutCleaner = LibQTip.layoutCleaner or CreateFrame('Frame')
 
@@ -59,8 +58,8 @@ local cellMetatable = LibQTip.cellMetatable
 
 local activeTooltips = LibQTip.activeTooltips
 local tooltipHeap = LibQTip.tooltipHeap
-local lineHeap = LibQTip.lineHeap or {}
-local columnHeap = LibQTip.columnHeap or {}
+
+local frameHeap = LibQTip.frameHeap
 
 local layoutCleaner = LibQTip.layoutCleaner
 
@@ -98,9 +97,7 @@ function LibQTip:Acquire(key, ...)
 end
 
 function LibQTip:IsAcquired(key)
-	if key == nil then
-		error("attempt to use a nil key", 2)
-	end
+	if key == nil then error("attempt to use a nil key", 2)	end
 	return not not activeTooltips[key]
 end
 
@@ -115,6 +112,23 @@ end
 
 function LibQTip:IterateTooltips()
 	return pairs(activeTooltips)
+end
+
+------------------------------------------------------------------------------
+-- Frame heap manipulation
+------------------------------------------------------------------------------
+local function AcquireFrame(parent)
+	local frame = tremove(frameHeap) or CreateFrame("Frame")
+	frame:SetParent(parent)
+	return frame
+end
+
+local function ReleaseFrame(frame)
+	frame:Hide()
+	frame:SetParent(nil)
+	frame:ClearAllPoints()
+	frame:SetBackdrop(nil)
+	tinsert(frameHeap, frame)
 end
 
 ------------------------------------------------------------------------------
@@ -257,7 +271,9 @@ function AcquireTooltip()
 end
 
 function InitializeTooltip(self, key)
+	----------------------------------------------------------------------
 	-- (Re)set frame settings
+	----------------------------------------------------------------------
 	self:SetBackdrop(GameTooltip:GetBackdrop())
 	self:SetBackdropColor(GameTooltip:GetBackdropColor())
 	self:SetBackdropBorderColor(GameTooltip:GetBackdropBorderColor())
@@ -266,7 +282,9 @@ function InitializeTooltip(self, key)
 	self:SetFrameStrata("TOOLTIP")
 	self:SetClampedToScreen(false)
 
-	-- Our data
+	----------------------------------------------------------------------
+	-- Internal data
+	----------------------------------------------------------------------
 	self.key = key
 	self.columns = self.columns or {}
 	self.lines = self.lines or {}
@@ -275,13 +293,10 @@ function InitializeTooltip(self, key)
 	self.headerFont = GameTooltipHeaderText
 	self.labelProvider = labelProvider
 
-	-- Data depending on key
-	lineHeap[key] = lineHeap[key] or {}
-	columnHeap[key] = columnHeap[key] or {}
-
-	-- Reset auto-hiding
+	----------------------------------------------------------------------
+	-- Finishing procedures
+	----------------------------------------------------------------------
 	self:SetAutoHideDelay(nil)
-
 	self:Hide()
 	ResetTooltipSize(self)
 end
@@ -308,49 +323,12 @@ function tipPrototype:SetColumnLayout(numColumns, ...)
 	end
 end
 
-function tipPrototype:AcquireLine(lineNum)
-	local line = lineHeap[self.key][lineNum]
-	if not line then
-		line = CreateFrame("Frame")
-		line.cells = {}
-		lineHeap[self.key][lineNum] = line
-	end
-	line:SetParent(self.scrollChild)
-	return line
-end
-
-function tipPrototype:ReleaseLine(line)
-	for i, cell in pairs(line.cells) do
-		ReleaseCell(self, cell)
-	end
-	wipe(line.cells)
-	line:ClearAllPoints()
-	line:SetParent(nil)
-	line:Hide()
-end
-
-function tipPrototype:AcquireColumn(colNum)
-	local column = columnHeap[self.key][colNum]
-	if not column then
-		column = CreateFrame("Frame")
-		columnHeap[self.key][colNum] = column
-	end
-	column:SetParent(self.scrollChild)
-	return column
-end
-
-function tipPrototype:ReleaseColumn(column)
-	column:ClearAllPoints()
-	column:SetParent(nil)
-	column:Hide()
-end
-
 function tipPrototype:AddColumn(justification)
 	justification = justification or "LEFT"
 	checkJustification(justification, 2)
 
 	local colNum = #self.columns + 1
-	local column = self:AcquireColumn(colNum)
+	local column = AcquireFrame(self)
 	column:SetParent(self.scrollChild)
 	column.justification = justification
 	column.width = 0
@@ -379,6 +357,9 @@ function tipPrototype:SetTipSize(width, height)
 	self.width = width
 end
 
+------------------------------------------------------------------------------
+-- Scrollbar data/functions
+------------------------------------------------------------------------------
 local sliderBackdrop = {
 	["bgFile"] = [[Interface\Buttons\UI-SliderBar-Background]],
 	["edgeFile"] = [[Interface\Buttons\UI-SliderBar-Border]],
@@ -471,7 +452,7 @@ function FinalizeTooltip(self)
 		self:SetScript("OnMouseWheel", nil)
 	end
 	for i, column in ipairs(self.columns) do
-		self:ReleaseColumn(column)
+		ReleaseFrame(column)
 		self.columns[i] = nil
 	end
 end
@@ -482,7 +463,11 @@ end
 
 function tipPrototype:Clear()
 	for i, line in ipairs(self.lines) do
-		self:ReleaseLine(line)
+		for j, cell in pairs(line.cells) do
+			ReleaseCell(self, cell)
+		end
+		wipe(line.cells)
+		ReleaseFrame(line)
 		self.lines[i] = nil
 	end
 	for i, column in ipairs(self.columns) do
@@ -668,7 +653,7 @@ local function CreateLine(self, font, ...)
 		error("column layout should be defined before adding line", 3)
 	end
 	local lineNum = #self.lines + 1
-	local line = self:AcquireLine(lineNum)
+	local line = AcquireFrame(self)
 	line:SetPoint('LEFT', self.scrollChild)
 	line:SetPoint('RIGHT', self.scrollChild)
 	if lineNum > 1 then
@@ -699,6 +684,23 @@ end
 
 function tipPrototype:AddHeader(...)
 	return CreateLine(self, self.headerFont, ...)
+end
+
+local SeparatorBackdrop = {
+	bgFile = "Interface\\Tooltips\\UI-Tooltip-Background",
+}
+
+function tipPrototype:AddSeparator(height, r, g, b, a)
+	local lineNum, colNum = self:AddLine()
+	local line = self.lines[lineNum]
+	local color = NORMAL_FONT_COLOR
+
+	height = height or 1
+	line.height = height
+	line:SetHeight(height)
+	line:SetBackdrop(SeparatorBackdrop)
+	line:SetBackdropColor(r or color.r, g or color.g, b or color.b, a or 1)
+	return lineNum, colNum
 end
 
 function tipPrototype:SetCell(lineNum, colNum, value, ...)
@@ -760,8 +762,8 @@ function tipPrototype:SetAutoHideDelay(delay, alternateFrame)
 	local timerFrame = self.autoHideTimerFrame
 	if delay > 0 then
 		if not timerFrame then
-			timerFrame = CreateFrame("Frame", nil, self)
-			timerFrame:SetScript('OnUpdate', AutoHideTimerFrame_OnUpdate)
+			timerFrame = AcquireFrame(self)
+			timerFrame:SetScript("OnUpdate", AutoHideTimerFrame_OnUpdate)
 			self.autoHideTimerFrame = timerFrame
 		end
 		timerFrame.elapsed = 0
@@ -769,8 +771,10 @@ function tipPrototype:SetAutoHideDelay(delay, alternateFrame)
 		timerFrame.alternateFrame = alternateFrame
 		timerFrame:Show()
 	elseif timerFrame then
+		self.autoHideTimerFrame = nil
 		timerFrame.alternateFrame = nil
-		timerFrame:Hide()
+		timerFrame:SetScript("OnUpdate", nil)
+		ReleaseFrame(timerFrame)
 	end
 end
 
@@ -792,4 +796,18 @@ function tipPrototype:SmartAnchorTo(frame)
 	self:ClearAllPoints()
 	self:SetClampedToScreen(true)
 	self:SetPoint(GetTipAnchor(frame))
+end
+
+------------------------------------------------------------------------------
+-- DEPRECATED! DO NOT USE! Will be removed very soon.
+------------------------------------------------------------------------------
+function tipPrototype:AcquireLine(lineNum)
+	return self.lines[lineNum]
+end
+
+------------------------------------------------------------------------------
+-- DEPRECATED! DO NOT USE! Will be removed very soon.
+------------------------------------------------------------------------------
+function tipPrototype:AcquireColumn(colNum)
+	return self.columns[colNum]
 end
