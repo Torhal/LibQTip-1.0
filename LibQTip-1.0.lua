@@ -1,6 +1,6 @@
 assert(LibStub, "LibQTip-1.0 requires LibStub")
 
-local MAJOR, MINOR = "LibQTip-1.0", 14 -- the minor should be manually increased
+local MAJOR, MINOR = "LibQTip-1.0", 15 -- the minor should be manually increased
 local LibQTip, oldminor = LibStub:NewLibrary(MAJOR, MINOR)
 if not LibQTip then return end -- No upgrade needed
 
@@ -104,6 +104,7 @@ end
 function LibQTip:Release(tooltip)
 	local key = tooltip and tooltip.key
 	if not key or activeTooltips[key] ~= tooltip then return end
+	tooltip:SetAutoHideDelay(nil)
 	tooltip:Hide()
 	FinalizeTooltip(tooltip)
 	tinsert(tooltipHeap, tooltip)
@@ -799,6 +800,28 @@ function tipPrototype:SmartAnchorTo(frame)
 end
 
 ------------------------------------------------------------------------------
+-- Upgrading from previous version
+------------------------------------------------------------------------------
+if oldminor < 14 then
+	-- Recover any frame in obsolete LibQTip.lineHeap and LibQTip.columnHeap
+	local function WipeHeap(name)
+		local heap = LibQTip[name]
+		if heap then
+			for key, frames in pairs(heap) do
+				for i, frame in pairs(frame) do
+					ReleaseFrame(frame)
+				end
+				wipe(frames)
+			end
+			wipe(heap)
+			LibQTip[name] = nil
+		end
+	end
+	WipeHeap('lineHeap')
+	WipeHeap('columnHeap')
+end
+
+------------------------------------------------------------------------------
 -- DEPRECATED! DO NOT USE! Will be removed very soon.
 ------------------------------------------------------------------------------
 function tipPrototype:AcquireLine(lineNum)
@@ -811,3 +834,4 @@ end
 function tipPrototype:AcquireColumn(colNum)
 	return self.columns[colNum]
 end
+
