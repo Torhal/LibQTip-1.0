@@ -1,6 +1,6 @@
 assert(LibStub, "LibQTip-1.0 requires LibStub")
 
-local MAJOR, MINOR = "LibQTip-1.0", 15 -- the minor should be manually increased
+local MAJOR, MINOR = "LibQTip-1.0", 16 -- the minor should be manually increased
 local LibQTip, oldminor = LibStub:NewLibrary(MAJOR, MINOR)
 if not LibQTip then return end -- No upgrade needed
 
@@ -802,7 +802,7 @@ end
 ------------------------------------------------------------------------------
 -- Upgrading from previous version
 ------------------------------------------------------------------------------
-if oldminor < 14 then
+if oldminor and oldminor < 14 then
 	-- Recover any frame in obsolete LibQTip.lineHeap and LibQTip.columnHeap
 	local function WipeHeap(name)
 		local heap = LibQTip[name]
