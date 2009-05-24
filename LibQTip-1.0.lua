@@ -326,12 +326,11 @@ function ReleaseTooltip(tooltip)
 	for i, column in ipairs(tooltip.columns) do
 		tooltip.columns[i] = ReleaseFrame(column)
 	end
-	ReleaseTable(tooltip.columns)
-	tooltip.columns = nil
-	ReleaseTable(tooltip.lines)
-	tooltip.lines = nil
-	ReleaseTable(tooltip.colspans)
-	tooltip.colspans = nil
+	tooltip.columns = ReleaseTable(tooltip.columns)
+	tooltip.lines = ReleaseTable(tooltip.lines)
+	tooltip.colspans = ReleaseTable(tooltip.colspans)
+
+	layoutCleaner.registry[tooltip] = nil
 	tinsert(tooltipHeap, tooltip)
 	--@debug@
 	usedTooltips = usedTooltips - 1
@@ -896,6 +895,15 @@ local function PrintStats()
 	print("Tooltips used: "..usedTooltips..", Cached: "..tipCache..", Total: "..tipCache + usedTooltips)
 	print("Frames used: "..usedFrames..", Cached: "..frameCache..", Total: "..frameCache + usedFrames)
 	print("Tables used: "..usedTables..", Cached: "..tableCache..", Total: "..tableCache + usedTables)
+
+	local header = false
+	for k, v in pairs(activeTooltips) do
+		if not header then
+			print("Active tooltips:")
+			header = true
+		end
+		print("- "..k)
+	end
 end
 
 SLASH_LibQTip1 = "/qtip"
