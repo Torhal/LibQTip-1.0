@@ -1,6 +1,6 @@
 assert(LibStub, "LibQTip-1.0 requires LibStub")
 
-local MAJOR, MINOR = "LibQTip-1.0", 17 -- the minor should be manually increased
+local MAJOR, MINOR = "LibQTip-1.0", 18 -- the minor should be manually increased
 local LibQTip, oldminor = LibStub:NewLibrary(MAJOR, MINOR)
 if not LibQTip then return end -- No upgrade needed
 
@@ -42,6 +42,7 @@ LibQTip.cellPrototype = LibQTip.cellPrototype or setmetatable({}, LibQTip.frameM
 LibQTip.cellMetatable = LibQTip.cellMetatable or { __index = LibQTip.cellPrototype }
 
 LibQTip.activeTooltips = LibQTip.activeTooltips or {}
+
 LibQTip.tooltipHeap = LibQTip.tooltipHeap or {}
 LibQTip.frameHeap = LibQTip.frameHeap or {}
 LibQTip.tableHeap = LibQTip.tableHeap or {}
@@ -66,8 +67,13 @@ local layoutCleaner = LibQTip.layoutCleaner
 ------------------------------------------------------------------------------
 local AcquireTooltip, ReleaseTooltip
 local AcquireCell, ReleaseCell
+local AcquireTable, ReleaseTable
 
 local InitializeTooltip, SetTooltipSize, ResetTooltipSize, LayoutColspans
+
+--@debug@
+local usedTables, usedFrames, usedTooltips = 0, 0, 0	-- Cache debugging.
+--@end-debug
 
 ------------------------------------------------------------------------------
 -- Public library API
@@ -120,6 +126,9 @@ local frameHeap = LibQTip.frameHeap
 local function AcquireFrame(parent)
 	local frame = tremove(frameHeap) or CreateFrame("Frame")
 	frame:SetParent(parent)
+	--@debug
+	usedFrames = usedFrames + 1
+	--@end-debug
 	return frame
 end
 
@@ -129,6 +138,9 @@ local function ReleaseFrame(frame)
 	frame:ClearAllPoints()
 	frame:SetBackdrop(nil)
 	tinsert(frameHeap, frame)
+	--@debug
+	usedFrames = usedFrames - 1
+	--@end-debug
 end
 
 ------------------------------------------------------------------------------
@@ -211,8 +223,8 @@ local labelPrototype = LibQTip.LabelPrototype
 
 function labelPrototype:InitializeCell()
 	self.fontString = self:CreateFontString()
-	self.fontString:SetAllPoints(self)
 	self.fontString:SetFontObject(GameTooltipText)
+	self.fontString:SetAllPoints(self)
 end
 
 function labelPrototype:SetupCell(tooltip, value, justification, font, ...)
@@ -220,8 +232,30 @@ function labelPrototype:SetupCell(tooltip, value, justification, font, ...)
 	fs:SetFontObject(font or tooltip:GetFont())
 	fs:SetJustifyH(justification)
 	fs:SetText(tostring(value))
+
+	-- Variable argument checking
+	local padding, max_width
+	local i, arg = 1, ...
+
+	if arg == nil or type(arg) == "number" then
+		i, padding, arg = i+1, select(i, ...)
+	end
+
+	if arg == nil or type(arg) == "number" then
+		i, max_width = (i + 1), arg
+	end
+
+	-- Add 2 pixels to height so dangling letters (g, y, p, j, etc) are not clipped.
+	-- Use GetHeight() instead of GetStringHeight() so lines which are longer than width will wrap.
+	local height = fs:GetHeight() + 2
+	local width = fs:GetStringWidth() + (padding or 0)
+
+	if max_width and (max_width < width) then
+		width = max_width
+		fs:SetWidth(width)
+	end
 	fs:Show()
-	return fs:GetStringWidth(), fs:GetStringHeight()
+	return width, height
 end
 
 ------------------------------------------------------------------------------
@@ -270,6 +304,9 @@ function AcquireTooltip()
 		tooltip.scrollChild = scrollChild
 		setmetatable(tooltip, tipMetatable)
 	end
+	--@debug
+	usedTooltips = usedTooltips + 1
+	--@end-debug
 	return tooltip
 end
 
@@ -289,11 +326,16 @@ function ReleaseTooltip(tooltip)
 	for i, column in ipairs(tooltip.columns) do
 		tooltip.columns[i] = ReleaseFrame(column)
 	end
---	ReleaseTable(tooltip.columns)
---	tooltip.columns = nil
---	ReleaseTable(tooltip.lines)
---	tooltip.lines = nil
+	ReleaseTable(tooltip.columns)
+	tooltip.columns = nil
+	ReleaseTable(tooltip.lines)
+	tooltip.lines = nil
+	ReleaseTable(tooltip.colspans)
+	tooltip.colspans = nil
 	tinsert(tooltipHeap, tooltip)
+	--@debug
+	usedTooltips = usedTooltips - 1
+	--@end-debug
 end
 
 ------------------------------------------------------------------------------
@@ -325,15 +367,21 @@ end
 local tableHeap = LibQTip.tableHeap
 
 -- Returns a table
-local function AcquireTable()
+function AcquireTable()
 	local tbl = tremove(tableHeap) or {}
+	--@debug
+	usedTables = usedTables + 1
+	--@end-debug
 	return tbl
 end
 
 -- Cleans the table and stores it in the cache
-local function ReleaseTable(table)
+function ReleaseTable(table)
 	wipe(table)
 	tinsert(tableHeap, table)
+	--@debug
+	usedTables = usedTables - 1
+	--@end-debug
 end
 
 ------------------------------------------------------------------------------
@@ -356,9 +404,9 @@ function InitializeTooltip(tooltip, key)
 	-- release, check for pre-existence.
 	----------------------------------------------------------------------
 	tooltip.key = key
-	tooltip.columns = tooltip.columns or {}
-	tooltip.lines = tooltip.lines or {}
-	tooltip.colspans = tooltip.colspans or {}
+	tooltip.columns = tooltip.columns or AcquireTable()
+	tooltip.lines = tooltip.lines or AcquireTable()
+	tooltip.colspans = tooltip.colspans or AcquireTable()
 	tooltip.regularFont = GameTooltipText
 	tooltip.headerFont = GameTooltipHeaderText
 	tooltip.labelProvider = labelProvider
@@ -557,21 +605,21 @@ local function EnlargeColumn(tooltip, column, width)
 	end
 end
 
-function LayoutColspans(self)
-	local columns = self.columns
-	for colRange, width in pairs(self.colspans) do
+function LayoutColspans(tooltip)
+	local columns = tooltip.columns
+	for colRange, width in pairs(tooltip.colspans) do
 		local left, right = colRange:match("^(%d+)%-(%d+)$")
 		left, right = tonumber(left), tonumber(right)
 		for col = left, right-1 do
 			width = width - columns[col].width - CELL_MARGIN_H
 		end
-		EnlargeColumn(self, columns[right], width)
+		EnlargeColumn(tooltip, columns[right], width)
 	end
-	wipe(self.colspans)
+	wipe(tooltip.colspans)
 end
 
-local function _SetCell(self, lineNum, colNum, value, font, justification, colSpan, provider, ...)
-	local line = self.lines[lineNum]
+local function _SetCell(tooltip, lineNum, colNum, value, font, justification, colSpan, provider, ...)
+	local line = tooltip.lines[lineNum]
 	local cells = line.cells
 
 	-- Unset: be quick
@@ -608,15 +656,15 @@ local function _SetCell(self, lineNum, colNum, value, font, justification, colSp
 		end
 	elseif prevCell == nil then
 		-- Creating a new cell, using meaningful defaults.
-		provider = provider or self.labelProvider
-		font = font or self.regularFont
-		justification = justification or self.columns[colNum].justification or "LEFT"
+		provider = provider or tooltip.labelProvider
+		font = font or tooltip.regularFont
+		justification = justification or tooltip.columns[colNum].justification or "LEFT"
 		colSpan = colSpan or 1
 	else
 		error("overlapping cells at column "..colNum, 3)
 	end
 
-	local tooltipWidth = #self.columns
+	local tooltipWidth = #tooltip.columns
 	local rightColNum
 	if colSpan > 0 then
 		rightColNum = colNum + colSpan - 1
@@ -643,13 +691,13 @@ local function _SetCell(self, lineNum, colNum, value, font, justification, colSp
 
 	-- Create the cell
 	if not cell then
-		cell = AcquireCell(self, provider)
+		cell = AcquireCell(tooltip, provider)
 		cells[colNum] = cell
 	end
 	
 	-- Anchor the cell
-	cell:SetPoint("LEFT", self.columns[colNum])
-	cell:SetPoint("RIGHT", self.columns[rightColNum])
+	cell:SetPoint("LEFT", tooltip.columns[colNum])
+	cell:SetPoint("RIGHT", tooltip.columns[rightColNum])
 	cell:SetPoint("TOP", line)
 	cell:SetPoint("BOTTOM", line)
 
@@ -658,22 +706,22 @@ local function _SetCell(self, lineNum, colNum, value, font, justification, colSp
 	cell._font, cell._justification, cell._colSpan = font, justification, colSpan
 
 	-- Setup the cell content
-	local width, height = cell:SetupCell(self, value, justification, font, ...)
+	local width, height = cell:SetupCell(tooltip, value, justification, font, ...)
 	cell:Show()
 
 	if colSpan > 1 then
 		-- Postpone width changes until the tooltip is shown
 		local colRange = colNum.."-"..rightColNum
-		self.colspans[colRange] = max(self.colspans[colRange] or 0, width)
-		layoutCleaner:RegisterForCleanup(self)
+		tooltip.colspans[colRange] = max(tooltip.colspans[colRange] or 0, width)
+		layoutCleaner:RegisterForCleanup(tooltip)
 	else
 		-- Enlarge the column and tooltip if need be
-		EnlargeColumn(self, self.columns[colNum], width)
+		EnlargeColumn(tooltip, tooltip.columns[colNum], width)
 	end
 
 	-- Enlarge the line and tooltip if need be
 	if height > line.height then
-		SetTooltipSize(self, self.width, self.height + height - line.height)
+		SetTooltipSize(tooltip, tooltip.width, tooltip.height + height - line.height)
 
 		line.height = height
 		line:SetHeight(height)
@@ -686,31 +734,31 @@ local function _SetCell(self, lineNum, colNum, value, font, justification, colSp
 	end
 end
 
-local function CreateLine(self, font, ...)
-	if #self.columns == 0 then
+local function CreateLine(tooltip, font, ...)
+	if #tooltip.columns == 0 then
 		error("column layout should be defined before adding line", 3)
 	end
-	local lineNum = #self.lines + 1
-	local line = self.lines[lineNum] or AcquireFrame(self)
-	line:SetPoint('LEFT', self.scrollChild)
-	line:SetPoint('RIGHT', self.scrollChild)
+	local lineNum = #tooltip.lines + 1
+	local line = tooltip.lines[lineNum] or AcquireFrame(tooltip)
+	line:SetPoint('LEFT', tooltip.scrollChild)
+	line:SetPoint('RIGHT', tooltip.scrollChild)
 	if lineNum > 1 then
-		line:SetPoint('TOP', self.lines[lineNum-1], 'BOTTOM', 0, -CELL_MARGIN_V)
-		SetTooltipSize(self, self.width, self.height + CELL_MARGIN_V)
+		line:SetPoint('TOP', tooltip.lines[lineNum-1], 'BOTTOM', 0, -CELL_MARGIN_V)
+		SetTooltipSize(tooltip, tooltip.width, tooltip.height + CELL_MARGIN_V)
 	else
-		line:SetPoint('TOP', self.scrollChild)
+		line:SetPoint('TOP', tooltip.scrollChild)
 	end
-	self.lines[lineNum] = line
+	tooltip.lines[lineNum] = line
 	line.cells = line.cells or AcquireTable()
 	line.height = 0
 	line:SetHeight(1)
 	line:Show()
 
 	local colNum = 1
-	for i = 1, #self.columns do
+	for i = 1, #tooltip.columns do
 		local value = select(i, ...)
 		if value ~= nil then
-			lineNum, colNum = _SetCell(self, lineNum, i, value, font, nil, 1, self.labelProvider)
+			lineNum, colNum = _SetCell(tooltip, lineNum, i, value, font, nil, 1, tooltip.labelProvider)
 		end
 	end
 	return lineNum, colNum
@@ -835,6 +883,24 @@ function tipPrototype:SmartAnchorTo(frame)
 	self:SetClampedToScreen(true)
 	self:SetPoint(GetTipAnchor(frame))
 end
+
+------------------------------------------------------------------------------
+-- Debug slashcmds
+------------------------------------------------------------------------------
+--@debug
+local function PrintStats()
+	local tipCache = tostring(#tooltipHeap)
+	local frameCache = tostring(#frameHeap)
+	local tableCache = tostring(#tableHeap)
+
+	print("Tooltips used: "..usedTooltips..", Cached: "..tipCache..", Total: "..tipCache + usedTooltips)
+	print("Frames used: "..usedFrames..", Cached: "..frameCache..", Total: "..frameCache + usedFrames)
+	print("Tables used: "..usedTables..", Cached: "..tableCache..", Total: "..tableCache + usedTables)
+end
+
+SLASH_LibQTip1 = "/qtip"
+SlashCmdList["LibQTip"] = PrintStats
+--@end-debug
 
 ------------------------------------------------------------------------------
 -- Upgrading from previous version
