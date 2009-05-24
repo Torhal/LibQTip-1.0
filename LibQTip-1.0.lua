@@ -73,7 +73,7 @@ local InitializeTooltip, SetTooltipSize, ResetTooltipSize, LayoutColspans
 
 --@debug@
 local usedTables, usedFrames, usedTooltips = 0, 0, 0	-- Cache debugging.
---@end-debug
+--@end-debug@
 
 ------------------------------------------------------------------------------
 -- Public library API
@@ -126,9 +126,9 @@ local frameHeap = LibQTip.frameHeap
 local function AcquireFrame(parent)
 	local frame = tremove(frameHeap) or CreateFrame("Frame")
 	frame:SetParent(parent)
-	--@debug
+	--@debug@
 	usedFrames = usedFrames + 1
-	--@end-debug
+	--@end-debug@
 	return frame
 end
 
@@ -138,9 +138,9 @@ local function ReleaseFrame(frame)
 	frame:ClearAllPoints()
 	frame:SetBackdrop(nil)
 	tinsert(frameHeap, frame)
-	--@debug
+	--@debug@
 	usedFrames = usedFrames - 1
-	--@end-debug
+	--@end-debug@
 end
 
 ------------------------------------------------------------------------------
@@ -304,9 +304,9 @@ function AcquireTooltip()
 		tooltip.scrollChild = scrollChild
 		setmetatable(tooltip, tipMetatable)
 	end
-	--@debug
+	--@debug@
 	usedTooltips = usedTooltips + 1
-	--@end-debug
+	--@end-debug@
 	return tooltip
 end
 
@@ -333,9 +333,9 @@ function ReleaseTooltip(tooltip)
 	ReleaseTable(tooltip.colspans)
 	tooltip.colspans = nil
 	tinsert(tooltipHeap, tooltip)
-	--@debug
+	--@debug@
 	usedTooltips = usedTooltips - 1
-	--@end-debug
+	--@end-debug@
 end
 
 ------------------------------------------------------------------------------
@@ -369,9 +369,9 @@ local tableHeap = LibQTip.tableHeap
 -- Returns a table
 function AcquireTable()
 	local tbl = tremove(tableHeap) or {}
-	--@debug
+	--@debug@
 	usedTables = usedTables + 1
-	--@end-debug
+	--@end-debug@
 	return tbl
 end
 
@@ -379,9 +379,9 @@ end
 function ReleaseTable(table)
 	wipe(table)
 	tinsert(tableHeap, table)
-	--@debug
+	--@debug@
 	usedTables = usedTables - 1
-	--@end-debug
+	--@end-debug@
 end
 
 ------------------------------------------------------------------------------
@@ -887,7 +887,7 @@ end
 ------------------------------------------------------------------------------
 -- Debug slashcmds
 ------------------------------------------------------------------------------
---@debug
+--@debug@
 local function PrintStats()
 	local tipCache = tostring(#tooltipHeap)
 	local frameCache = tostring(#frameHeap)
@@ -900,11 +900,12 @@ end
 
 SLASH_LibQTip1 = "/qtip"
 SlashCmdList["LibQTip"] = PrintStats
---@end-debug
+--@end-debug@
 
 ------------------------------------------------------------------------------
 -- Upgrading from previous version
 ------------------------------------------------------------------------------
+--@debug@
 if oldminor and oldminor < 14 then
 	-- Recover any frame in obsolete LibQTip.lineHeap and LibQTip.columnHeap
 	local function WipeHeap(name)
@@ -923,6 +924,7 @@ if oldminor and oldminor < 14 then
 	WipeHeap('lineHeap')
 	WipeHeap('columnHeap')
 end
+--@end-debug@
 
 ------------------------------------------------------------------------------
 -- DEPRECATED! DO NOT USE! Will be removed very soon.
