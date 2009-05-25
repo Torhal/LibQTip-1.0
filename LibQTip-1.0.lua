@@ -1,6 +1,6 @@
 assert(LibStub, "LibQTip-1.0 requires LibStub")
 
-local MAJOR, MINOR = "LibQTip-1.0", 18 -- the minor should be manually increased
+local MAJOR, MINOR = "LibQTip-1.0", 19 -- the minor should be manually increased
 local LibQTip, oldminor = LibStub:NewLibrary(MAJOR, MINOR)
 if not LibQTip then return end -- No upgrade needed
 
@@ -780,7 +780,7 @@ function tipPrototype:AddHeader(...)
 	return CreateLine(self, self.headerFont, ...)
 end
 
-local SeparatorBackdrop = {
+local GenericBackdrop = {
 	bgFile = "Interface\\Tooltips\\UI-Tooltip-Background",
 }
 
@@ -792,9 +792,33 @@ function tipPrototype:AddSeparator(height, r, g, b, a)
 	height = height or 1
 	line.height = height
 	line:SetHeight(height)
-	line:SetBackdrop(SeparatorBackdrop)
+	line:SetBackdrop(GenericBackdrop)
 	line:SetBackdropColor(r or color.r, g or color.g, b or color.b, a or 1)
 	return lineNum, colNum
+end
+
+function tipPrototype:SetColumnColor(colNum, r, g, b, a)
+	if type(colNum) ~= "number" then
+		error("column number must be a number, not: "..tostring(colNum), 2)
+	elseif colNum < 1 or colNum > #self.columns then
+		error("column number out of range: "..tostring(colNum), 2)
+	end
+	local column = self.columns[colNum]
+	local color = self:GetBackdropColor()
+	column:SetBackdrop(GenericBackdrop)
+	column:SetBackdropColor(r or color.r, g or color.g, b or color.b, a or 1)
+end
+
+function tipPrototype:SetLineColor(colNum, r, g, b, a)
+	if type(lineNum) ~= "number" then
+		error("line number must be a number, not: "..tostring(lineNum), 2)
+	elseif lineNum < 1 or lineNum > #self.lines then
+		error("line number out of range: "..tostring(lineNum), 2)
+	end
+	local line = self.lines[colNum]
+	local color = self:GetBackdropColor()
+	line:SetBackdrop(GenericBackdrop)
+	line:SetBackdropColor(r or color.r, g or color.g, b or color.b, a or 1)
 end
 
 function tipPrototype:SetCell(lineNum, colNum, value, ...)
@@ -918,18 +942,3 @@ end
 SLASH_LibQTip1 = "/qtip"
 SlashCmdList["LibQTip"] = PrintStats
 --@end-debug@
-
-------------------------------------------------------------------------------
--- DEPRECATED! DO NOT USE! Will be removed very soon.
-------------------------------------------------------------------------------
-function tipPrototype:AcquireLine(lineNum)
-	return self.lines[lineNum]
-end
-
-------------------------------------------------------------------------------
--- DEPRECATED! DO NOT USE! Will be removed very soon.
-------------------------------------------------------------------------------
-function tipPrototype:AcquireColumn(colNum)
-	return self.columns[colNum]
-end
-
