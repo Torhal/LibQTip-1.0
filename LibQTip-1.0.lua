@@ -224,7 +224,6 @@ local labelPrototype = LibQTip.LabelPrototype
 function labelPrototype:InitializeCell()
 	self.fontString = self:CreateFontString()
 	self.fontString:SetFontObject(GameTooltipText)
-	self.fontString:SetAllPoints(self)
 end
 
 function labelPrototype:SetupCell(tooltip, value, justification, font, ...)
@@ -234,12 +233,18 @@ function labelPrototype:SetupCell(tooltip, value, justification, font, ...)
 	fs:SetText(tostring(value))
 
 	-- Variable argument checking
-	local padding, max_width
+	local l_pad, r_pad, max_width
 	local i, arg = 1, ...
 
 	if arg == nil or type(arg) == "number" then
-		i, padding, arg = i+1, select(i, ...)
+		i, l_pad, arg = i+1, select(i, ...)
 	end
+	l_pad = l_pad or 0
+
+	if arg == nil or type(arg) == "number" then
+		i, r_pad, arg = i+1, select(i, ...)
+	end
+	r_pad = r_pad or 0
 
 	if arg == nil or type(arg) == "number" then
 		i, max_width = (i + 1), arg
@@ -249,7 +254,10 @@ function labelPrototype:SetupCell(tooltip, value, justification, font, ...)
 	-- Use GetHeight() instead of GetStringHeight() so lines which are longer than width will wrap.
 	local dangle = string.find(value, "[qypgj]")
 	local height = fs:GetHeight() + (dangle and 2 or 0)
-	local width = fs:GetStringWidth() + (padding or 0)
+	local width = fs:GetStringWidth() + l_pad + r_pad
+
+	fs:SetPoint("TOPLEFT", self, "TOPLEFT", l_pad, 0)
+	fs:SetPoint("BOTTOMRIGHT", self, "BOTTOMRIGHT", -r_pad, 0)
 
 	if max_width and (max_width < width) then
 		width = max_width
