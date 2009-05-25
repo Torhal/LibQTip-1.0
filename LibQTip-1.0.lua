@@ -247,7 +247,8 @@ function labelPrototype:SetupCell(tooltip, value, justification, font, ...)
 
 	-- Add 2 pixels to height so dangling letters (g, y, p, j, etc) are not clipped.
 	-- Use GetHeight() instead of GetStringHeight() so lines which are longer than width will wrap.
-	local height = fs:GetHeight() + 2
+	local dangle = string.find(value, "[qypgj]")
+	local height = fs:GetHeight() + (dangle and 2 or 0)
 	local width = fs:GetStringWidth() + (padding or 0)
 
 	if max_width and (max_width < width) then
@@ -394,7 +395,7 @@ function InitializeTooltip(tooltip, key)
 	tooltip:SetBackdropColor(GameTooltip:GetBackdropColor())
 	tooltip:SetBackdropBorderColor(GameTooltip:GetBackdropBorderColor())
 	tooltip:SetScale(GameTooltip:GetScale())
-	tooltip:SetAlpha(0.9)
+	tooltip:SetAlpha(GameTooltip:GetAlpha())
 	tooltip:SetFrameStrata("TOOLTIP")
 	tooltip:SetClampedToScreen(false)
 
@@ -803,17 +804,17 @@ function tipPrototype:SetCell(lineNum, colNum, value, ...)
 	-- Variable argument checking
 	local font, justification, colSpan, provider
 	local i, arg = 1, ...
-	if arg == nil or checkFont(arg, 2, true) then
+	if not arg or checkFont(arg, 2, true) then
 		i, font, arg = 2, ...
 	end
-	if arg == nil or checkJustification(arg, 2, true) then
-		i, justification, arg = i+1, select(i, ...)
+	if not arg or checkJustification(arg, 2, true) then
+		i, justification, arg = i + 1, select(i, ...)
 	end
-	if arg == nil or type(arg) == 'number' then
-		i, colSpan, arg = i+1, select(i, ...)
+	if not arg or type(arg) == 'number' then
+		i, colSpan, arg = i + 1, select(i, ...)
 	end
-	if arg == nil or type(arg) == 'table' and type(arg.AcquireCell) == 'function' then
-		i, provider = i+1, arg
+	if not arg or type(arg) == 'table' and type(arg.AcquireCell) == 'function' then
+		i, provider = i + 1, arg
 	end
 
 	return _SetCell(self, lineNum, colNum, value, font, justification, colSpan, provider, select(i, ...))
