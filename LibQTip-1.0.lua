@@ -238,21 +238,25 @@ function labelPrototype:SetupCell(tooltip, value, justification, font, ...)
 	fs:SetText(tostring(value))
 
 	-- Variable argument checking
-	local l_pad, r_pad, max_width
+	local l_pad, r_pad, max_width, min_width
 	local i, arg = 1, ...
 
 	if arg == nil or type(arg) == "number" then
-		i, l_pad, arg = i+1, select(i, ...)
+		i, l_pad, arg = i + 1, select(i, ...)
 	end
 	l_pad = l_pad or 0
 
 	if arg == nil or type(arg) == "number" then
-		i, r_pad, arg = i+1, select(i, ...)
+		i, r_pad, arg = i + 1, select(i, ...)
 	end
 	r_pad = r_pad or 0
 
 	if arg == nil or type(arg) == "number" then
-		i, max_width = (i + 1), arg
+		i, max_width, arg = i + 1, select(i, ...)
+	end
+
+	if arg == nil or type(arg) == "number" then
+		i, min_width = (i + 1), arg
 	end
 
 	-- Use GetHeight() instead of GetStringHeight() so lines which are longer than width will wrap.
@@ -262,6 +266,10 @@ function labelPrototype:SetupCell(tooltip, value, justification, font, ...)
 	fs:SetPoint("TOPLEFT", self, "TOPLEFT", l_pad, 0)
 	fs:SetPoint("BOTTOMRIGHT", self, "BOTTOMRIGHT", -r_pad, 0)
 
+	if max_width and min_width and (max_width < min_width) then
+		error("maximum width cannot be lower than minimum width: "..tostring(max_width).." < "..tostring(min_width), 2)
+	end
+	if min_width and width < min_width then width = min_width end
 	if max_width and (max_width < width) then
 		width = max_width
 		fs:SetWidth(width)
@@ -836,16 +844,16 @@ function tipPrototype:SetCell(lineNum, colNum, value, ...)
 	-- Variable argument checking
 	local font, justification, colSpan, provider
 	local i, arg = 1, ...
-	if not arg or checkFont(arg, 2, true) then
+	if arg == nil or checkFont(arg, 2, true) then
 		i, font, arg = 2, ...
 	end
-	if not arg or checkJustification(arg, 2, true) then
+	if arg == nil or checkJustification(arg, 2, true) then
 		i, justification, arg = i + 1, select(i, ...)
 	end
-	if not arg or type(arg) == 'number' then
+	if arg == nil or type(arg) == 'number' then
 		i, colSpan, arg = i + 1, select(i, ...)
 	end
-	if not arg or type(arg) == 'table' and type(arg.AcquireCell) == 'function' then
+	if arg == nil or type(arg) == 'table' and type(arg.AcquireCell) == 'function' then
 		i, provider = i + 1, arg
 	end
 
