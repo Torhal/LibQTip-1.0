@@ -1,8 +1,9 @@
-assert(LibStub, "LibQTip-1.0 requires LibStub")
+local MAJOR = "LibQTip-1.0"
+local MINOR = 20 -- Should be manually increased
+assert(LibStub, MAJOR.." requires LibStub")
 
-local MAJOR, MINOR = "LibQTip-1.0", 19 -- the minor should be manually increased
-local LibQTip, oldminor = LibStub:NewLibrary(MAJOR, MINOR)
-if not LibQTip then return end -- No upgrade needed
+local lib, oldminor = LibStub:NewLibrary(MAJOR, MINOR)
+if not lib then return end -- No upgrade needed
 
 ------------------------------------------------------------------------------
 -- Upvalued globals
@@ -12,6 +13,8 @@ local select = select
 local error = error
 local pairs, ipairs = pairs, ipairs
 local tonumber, tostring = tonumber, tostring
+local strfind = string.find
+local math = math
 local min, max = math.min, math.max
 local setmetatable = setmetatable
 local tinsert, tremove = tinsert, tremove
@@ -19,48 +22,38 @@ local wipe = wipe
 
 local CreateFrame = CreateFrame
 local UIParent = UIParent
-
-------------------------------------------------------------------------------
--- Internal constants to tweak the layout
-------------------------------------------------------------------------------
-local TOOLTIP_PADDING = 10
-local CELL_MARGIN_H = 6
-local CELL_MARGIN_V = 3
+local MouseIsOver = MouseIsOver
 
 ------------------------------------------------------------------------------
 -- Tables and locals
 ------------------------------------------------------------------------------
-LibQTip.frameMetatable = LibQTip.frameMetatable or {__index = CreateFrame("Frame")}
+lib.frameMetatable = lib.frameMetatable or {__index = CreateFrame("Frame")}
 
-LibQTip.tipPrototype = LibQTip.tipPrototype or setmetatable({}, LibQTip.frameMetatable)
-LibQTip.tipMetatable = LibQTip.tipMetatable or {__index = LibQTip.tipPrototype}
+lib.tipPrototype = lib.tipPrototype or setmetatable({}, lib.frameMetatable)
+lib.tipMetatable = lib.tipMetatable or {__index = lib.tipPrototype}
 
-LibQTip.providerPrototype = LibQTip.providerPrototype or {}
-LibQTip.providerMetatable = LibQTip.providerMetatable or {__index = LibQTip.providerPrototype}
+lib.providerPrototype = lib.providerPrototype or {}
+lib.providerMetatable = lib.providerMetatable or {__index = lib.providerPrototype}
 
-LibQTip.cellPrototype = LibQTip.cellPrototype or setmetatable({}, LibQTip.frameMetatable)
-LibQTip.cellMetatable = LibQTip.cellMetatable or { __index = LibQTip.cellPrototype }
+lib.cellPrototype = lib.cellPrototype or setmetatable({}, lib.frameMetatable)
+lib.cellMetatable = lib.cellMetatable or { __index = lib.cellPrototype }
 
-LibQTip.activeTooltips = LibQTip.activeTooltips or {}
+lib.activeTooltips = lib.activeTooltips or {}
 
-LibQTip.tooltipHeap = LibQTip.tooltipHeap or {}
-LibQTip.frameHeap = LibQTip.frameHeap or {}
-LibQTip.tableHeap = LibQTip.tableHeap or {}
+lib.tooltipHeap = lib.tooltipHeap or {}
+lib.frameHeap = lib.frameHeap or {}
+lib.tableHeap = lib.tableHeap or {}
 
-LibQTip.layoutCleaner = LibQTip.layoutCleaner or CreateFrame('Frame')
+local tipPrototype = lib.tipPrototype
+local tipMetatable = lib.tipMetatable
 
-local tipPrototype = LibQTip.tipPrototype
-local tipMetatable = LibQTip.tipMetatable
+local providerPrototype = lib.providerPrototype
+local providerMetatable = lib.providerMetatable
 
-local providerPrototype = LibQTip.providerPrototype
-local providerMetatable = LibQTip.providerMetatable
+local cellPrototype = lib.cellPrototype
+local cellMetatable = lib.cellMetatable
 
-local cellPrototype = LibQTip.cellPrototype
-local cellMetatable = LibQTip.cellMetatable
-
-local activeTooltips = LibQTip.activeTooltips
-
-local layoutCleaner = LibQTip.layoutCleaner
+local activeTooltips = lib.activeTooltips
 
 ------------------------------------------------------------------------------
 -- Private methods for Caches and Tooltip
@@ -71,9 +64,19 @@ local AcquireTable, ReleaseTable
 
 local InitializeTooltip, SetTooltipSize, ResetTooltipSize, LayoutColspans
 
+------------------------------------------------------------------------------
+-- Cache debugging.
+------------------------------------------------------------------------------
 --@debug@
-local usedTables, usedFrames, usedTooltips = 0, 0, 0	-- Cache debugging.
+local usedTables, usedFrames, usedTooltips = 0, 0, 0
 --@end-debug@
+
+------------------------------------------------------------------------------
+-- Internal constants to tweak the layout
+------------------------------------------------------------------------------
+local TOOLTIP_PADDING = 10
+local CELL_MARGIN_H = 6
+local CELL_MARGIN_V = 3
 
 ------------------------------------------------------------------------------
 -- Public library API
@@ -86,7 +89,7 @@ local usedTables, usedFrames, usedTooltips = 0, 0, 0	-- Cache debugging.
 -- @return tooltip Frame object - the acquired tooltip. 
 -- @usage Acquire a tooltip with at least 5 columns, justification : left, center, left, left, left
 -- <pre>local tip = LibStub('LibQTip-1.0'):Acquire('MyFooBarTooltip', 5, "LEFT", "CENTER")</pre>
-function LibQTip:Acquire(key, ...)
+function lib:Acquire(key, ...)
 	if key == nil then error("attempt to use a nil key", 2)	end
 	local tooltip = activeTooltips[key]
 	if not tooltip then
@@ -102,26 +105,26 @@ function LibQTip:Acquire(key, ...)
 	return tooltip
 end
 
-function LibQTip:IsAcquired(key)
-	if key == nil then error("attempt to use a nil key", 2)	end
-	return not not activeTooltips[key]
-end
-
-function LibQTip:Release(tooltip)
+function lib:Release(tooltip)
 	local key = tooltip and tooltip.key
 	if not key or activeTooltips[key] ~= tooltip then return end
 	ReleaseTooltip(tooltip)
 	activeTooltips[key] = nil
 end
 
-function LibQTip:IterateTooltips()
+function lib:IsAcquired(key)
+	if key == nil then error("attempt to use a nil key", 2)	end
+	return not not activeTooltips[key]
+end
+
+function lib:IterateTooltips()
 	return pairs(activeTooltips)
 end
 
 ------------------------------------------------------------------------------
 -- Frame cache
 ------------------------------------------------------------------------------
-local frameHeap = LibQTip.frameHeap
+local frameHeap = lib.frameHeap
 
 local function AcquireFrame(parent)
 	local frame = tremove(frameHeap) or CreateFrame("Frame")
@@ -146,6 +149,9 @@ end
 ------------------------------------------------------------------------------
 -- Dirty layout handler
 ------------------------------------------------------------------------------
+lib.layoutCleaner = lib.layoutCleaner or CreateFrame('Frame')
+
+local layoutCleaner = lib.layoutCleaner
 layoutCleaner.registry = layoutCleaner.registry or {}
 
 function layoutCleaner:RegisterForCleanup(tooltip)
@@ -160,7 +166,6 @@ function layoutCleaner:CleanupLayouts()
 	end
 	wipe(self.registry)
 end
-
 layoutCleaner:SetScript('OnUpdate', layoutCleaner.CleanupLayouts)
 
 ------------------------------------------------------------------------------
@@ -195,7 +200,7 @@ function providerPrototype:IterateCells()
 	return pairs(self.cells)
 end
 
-function LibQTip:CreateCellProvider(baseProvider)
+function lib:CreateCellProvider(baseProvider)
 	local cellBaseMetatable, cellBasePrototype
 	if baseProvider and baseProvider.GetCellPrototype then
 		cellBasePrototype, cellBaseMetatable = baseProvider:GetCellPrototype()
@@ -214,12 +219,12 @@ end
 ------------------------------------------------------------------------------
 -- Basic label provider
 ------------------------------------------------------------------------------
-if not LibQTip.LabelProvider then
-	LibQTip.LabelProvider, LibQTip.LabelPrototype = LibQTip:CreateCellProvider()
+if not lib.LabelProvider then
+	lib.LabelProvider, lib.LabelPrototype = lib:CreateCellProvider()
 end
 
-local labelProvider = LibQTip.LabelProvider
-local labelPrototype = LibQTip.LabelPrototype
+local labelProvider = lib.LabelProvider
+local labelPrototype = lib.LabelPrototype
 
 function labelPrototype:InitializeCell()
 	self.fontString = self:CreateFontString()
@@ -252,7 +257,7 @@ function labelPrototype:SetupCell(tooltip, value, justification, font, ...)
 
 	-- Add 2 pixels to height so dangling letters (g, y, p, j, etc) are not clipped.
 	-- Use GetHeight() instead of GetStringHeight() so lines which are longer than width will wrap.
-	local dangle = string.find(value, "[qypgj]")
+	local dangle = strfind(value, "[qypgj]")
 	local height = fs:GetHeight() + (dangle and 2 or 0)
 	local width = fs:GetStringWidth() + l_pad + r_pad
 
@@ -268,34 +273,9 @@ function labelPrototype:SetupCell(tooltip, value, justification, font, ...)
 end
 
 ------------------------------------------------------------------------------
--- Helpers
-------------------------------------------------------------------------------
-local function checkFont(font, level, silent)
-	if not font or type(font) ~= 'table' or type(font.IsObjectType) ~= 'function' or not font:IsObjectType("Font") then
-		if silent then
-			return false
-		else
-			error("font must be Font instance, not: "..tostring(font), level+1)
-		end
-	end
-	return true
-end
-
-local function checkJustification(justification, level, silent)
-	if justification ~= "LEFT" and justification ~= "CENTER" and justification ~= "RIGHT" then
-		if silent then
-			return false
-		else
-			error("invalid justification, must one of LEFT, CENTER or RIGHT, not: "..tostring(justification), level+1)
-		end
-	end
-	return true
-end
-
-------------------------------------------------------------------------------
 -- Tooltip cache
 ------------------------------------------------------------------------------
-local tooltipHeap = LibQTip.tooltipHeap
+local tooltipHeap = lib.tooltipHeap
 
 -- Returns a tooltip
 function AcquireTooltip()
@@ -372,7 +352,7 @@ end
 ------------------------------------------------------------------------------
 -- Table cache
 ------------------------------------------------------------------------------
-local tableHeap = LibQTip.tableHeap
+local tableHeap = lib.tableHeap
 
 -- Returns a table
 function AcquireTable()
@@ -427,26 +407,20 @@ function InitializeTooltip(tooltip, key)
 	ResetTooltipSize(tooltip)
 end
 
-function SetTooltipSize(tooltip, width, height)
-	tooltip:SetHeight(2 * TOOLTIP_PADDING + height)
-	tooltip.scrollChild:SetHeight(height)
-	tooltip.height = height
-
-	tooltip:SetWidth(2 * TOOLTIP_PADDING + width)
-	tooltip.scrollChild:SetWidth(width)
-	tooltip.width = width
-end
-
-function ResetTooltipSize(tooltip)
-	SetTooltipSize(tooltip, max(0, CELL_MARGIN_H * (#tooltip.columns - 1)), 0)
-end
-
 function tipPrototype:SetDefaultProvider(myProvider)
 	if not myProvider then return end
 	self.labelProvider = myProvider
 end
 
 function tipPrototype:GetDefaultProvider() return self.labelProvider end
+
+local function checkJustification(justification, level, silent)
+	if justification ~= "LEFT" and justification ~= "CENTER" and justification ~= "RIGHT" then
+		if silent then return false end
+		error("invalid justification, must one of LEFT, CENTER or RIGHT, not: "..tostring(justification), level+1)
+	end
+	return true
+end
 
 function tipPrototype:SetColumnLayout(numColumns, ...)
 	if type(numColumns) ~= "number" or numColumns < 1  then
@@ -572,6 +546,9 @@ function tipPrototype:UpdateScrolling(maxheight)
 	end
 end
 
+------------------------------------------------------------------------------
+-- Tooltip methods for changing its contents.
+------------------------------------------------------------------------------
 function tipPrototype:Clear()
 	for i, line in ipairs(self.lines) do
 		for j, cell in pairs(line.cells) do
@@ -590,6 +567,14 @@ function tipPrototype:Clear()
 	ResetTooltipSize(self)
 end
 
+local function checkFont(font, level, silent)
+	if not font or type(font) ~= 'table' or type(font.IsObjectType) ~= 'function' or not font:IsObjectType("Font") then
+		if silent then return false end
+		error("font must be Font instance, not: "..tostring(font), level+1)
+	end
+	return true
+end
+
 function tipPrototype:SetFont(font)
 	checkFont(font, 2)
 	self.regularFont = font
@@ -603,6 +588,20 @@ function tipPrototype:SetHeaderFont(font)
 end
 
 function tipPrototype:GetHeaderFont() return self.headerFont end
+
+function SetTooltipSize(tooltip, width, height)
+	tooltip:SetHeight(2 * TOOLTIP_PADDING + height)
+	tooltip.scrollChild:SetHeight(height)
+	tooltip.height = height
+
+	tooltip:SetWidth(2 * TOOLTIP_PADDING + width)
+	tooltip.scrollChild:SetWidth(width)
+	tooltip.width = width
+end
+
+function ResetTooltipSize(tooltip)
+	SetTooltipSize(tooltip, max(0, CELL_MARGIN_H * (#tooltip.columns - 1)), 0)
+end
 
 local function EnlargeColumn(tooltip, column, width)
 	if width > column.width then
@@ -809,13 +808,13 @@ function tipPrototype:SetColumnColor(colNum, r, g, b, a)
 	column:SetBackdropColor(r or color.r, g or color.g, b or color.b, a or 1)
 end
 
-function tipPrototype:SetLineColor(colNum, r, g, b, a)
+function tipPrototype:SetLineColor(lineNum, r, g, b, a)
 	if type(lineNum) ~= "number" then
 		error("line number must be a number, not: "..tostring(lineNum), 2)
 	elseif lineNum < 1 or lineNum > #self.lines then
 		error("line number out of range: "..tostring(lineNum), 2)
 	end
-	local line = self.lines[colNum]
+	local line = self.lines[lineNum]
 	local color = self:GetBackdropColor()
 	line:SetBackdrop(GenericBackdrop)
 	line:SetBackdropColor(r or color.r, g or color.g, b or color.b, a or 1)
@@ -866,7 +865,7 @@ local function AutoHideTimerFrame_OnUpdate(self, elapsed)
 	else
 		self.elapsed = self.elapsed + elapsed
 		if self.elapsed > self.delay then
-			LibQTip:Release(self:GetParent())
+			lib:Release(self:GetParent())
 		end
 	end
 end
@@ -920,6 +919,7 @@ end
 -- Debug slashcmds
 ------------------------------------------------------------------------------
 --@debug@
+local print = print
 local function PrintStats()
 	local tipCache = tostring(#tooltipHeap)
 	local frameCache = tostring(#frameHeap)
