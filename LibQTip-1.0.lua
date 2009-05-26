@@ -257,8 +257,9 @@ function labelPrototype:SetupCell(tooltip, value, justification, font, ...)
 
 	-- Add 2 pixels to height so dangling letters (g, y, p, j, etc) are not clipped.
 	-- Use GetHeight() instead of GetStringHeight() so lines which are longer than width will wrap.
-	local dangle = strfind(value, "[qypgj]")
-	local height = fs:GetHeight() + (dangle and 2 or 0)
+--	local dangle = strfind(value, "[qypgj]")
+--	local height = fs:GetHeight() + (dangle and 2 or 0)
+	local height = fs:GetHeight()
 	local width = fs:GetStringWidth() + l_pad + r_pad
 
 	fs:SetPoint("TOPLEFT", self, "TOPLEFT", l_pad, 0)
@@ -267,6 +268,7 @@ function labelPrototype:SetupCell(tooltip, value, justification, font, ...)
 	if max_width and (max_width < width) then
 		width = max_width
 		fs:SetWidth(width)
+		height = fs:GetHeight()
 	end
 	fs:Show()
 	return width, height
@@ -789,6 +791,7 @@ function tipPrototype:AddSeparator(height, r, g, b, a)
 	local color = NORMAL_FONT_COLOR
 
 	height = height or 1
+	SetTooltipSize(self, self.width, self.height + height)
 	line.height = height
 	line:SetHeight(height)
 	line:SetBackdrop(GenericBackdrop)
