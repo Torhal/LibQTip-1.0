@@ -255,10 +255,7 @@ function labelPrototype:SetupCell(tooltip, value, justification, font, ...)
 		i, max_width = (i + 1), arg
 	end
 
-	-- Add 2 pixels to height so dangling letters (g, y, p, j, etc) are not clipped.
 	-- Use GetHeight() instead of GetStringHeight() so lines which are longer than width will wrap.
---	local dangle = strfind(value, "[qypgj]")
---	local height = fs:GetHeight() + (dangle and 2 or 0)
 	local height = fs:GetHeight()
 	local width = fs:GetStringWidth() + l_pad + r_pad
 
@@ -601,8 +598,9 @@ function SetTooltipSize(tooltip, width, height)
 	tooltip.width = width
 end
 
+-- Add 2 pixels to height so dangling letters (g, y, p, j, etc) are not clipped.
 function ResetTooltipSize(tooltip)
-	SetTooltipSize(tooltip, max(0, CELL_MARGIN_H * (#tooltip.columns - 1)), 0)
+	SetTooltipSize(tooltip, max(0, CELL_MARGIN_H * (#tooltip.columns - 1)), 2)
 end
 
 local function EnlargeColumn(tooltip, column, width)
