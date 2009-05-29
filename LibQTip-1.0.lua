@@ -279,6 +279,8 @@ function labelPrototype:SetupCell(tooltip, value, justification, font, ...)
 	return width, height
 end
 
+function labelPrototype:GetPosition() return self._line, self._column end
+
 ------------------------------------------------------------------------------
 -- Tooltip cache
 ------------------------------------------------------------------------------
@@ -336,18 +338,12 @@ end
 ------------------------------------------------------------------------------
 -- Cell 'cache' (just a wrapper to the provider's cache)
 ------------------------------------------------------------------------------
--- This function is meant only for assignment to a cell.
-local function GetPosition(self)
-	return self._line, self._column
-end
-
 -- Returns a cell for the given tooltip from the given provider
 function AcquireCell(tooltip, provider)
 	local cell = provider:AcquireCell(tooltip)
 	cell:SetParent(tooltip.scrollChild)
 	cell:SetFrameLevel(tooltip.scrollChild:GetFrameLevel() + 1)
 	cell._provider = provider
-	cell.GetPosition = GetPosition
 	return cell
 end
 
@@ -360,7 +356,6 @@ function ReleaseCell(cell)
 
 	cell._provider:ReleaseCell(cell)
 	cell._provider = nil
-	cell.GetPosition = nil
 end
 
 ------------------------------------------------------------------------------
