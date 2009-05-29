@@ -336,12 +336,18 @@ end
 ------------------------------------------------------------------------------
 -- Cell 'cache' (just a wrapper to the provider's cache)
 ------------------------------------------------------------------------------
+-- This function is meant only for assignment to a cell.
+local function GetPosition(self)
+	return self._line, self._column
+end
+
 -- Returns a cell for the given tooltip from the given provider
 function AcquireCell(tooltip, provider)
 	local cell = provider:AcquireCell(tooltip)
 	cell:SetParent(tooltip.scrollChild)
 	cell:SetFrameLevel(tooltip.scrollChild:GetFrameLevel() + 1)
 	cell._provider = provider
+	cell.GetPosition = GetPosition
 	return cell
 end
 
@@ -350,10 +356,11 @@ function ReleaseCell(cell)
 	cell:Hide()
 	cell:ClearAllPoints()
 	cell:SetParent(nil)
-	cell._font, cell._justification, cell._colSpan = nil
+	cell._font, cell._justification, cell._colSpan,	cell._line, cell._column = nil
 
 	cell._provider:ReleaseCell(cell)
 	cell._provider = nil
+	cell.GetPosition = nil
 end
 
 ------------------------------------------------------------------------------
@@ -709,7 +716,7 @@ local function _SetCell(tooltip, lineNum, colNum, value, font, justification, co
 		cell = AcquireCell(tooltip, provider)
 		cells[colNum] = cell
 	end
-	
+
 	-- Anchor the cell
 	cell:SetPoint("LEFT", tooltip.columns[colNum])
 	cell:SetPoint("RIGHT", tooltip.columns[rightColNum])
@@ -718,7 +725,7 @@ local function _SetCell(tooltip, lineNum, colNum, value, font, justification, co
 
 	-- Store the cell settings directly into the cell
 	-- That's a bit risky but is really cheap compared to other ways to do it
-	cell._font, cell._justification, cell._colSpan = font, justification, colSpan
+	cell._font, cell._justification, cell._colSpan,	cell._line, cell._column = font, justification, colSpan, lineNum, colNum
 
 	-- Setup the cell content
 	local width, height = cell:SetupCell(tooltip, value, justification, font, ...)
