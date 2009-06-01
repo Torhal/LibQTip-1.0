@@ -814,9 +814,9 @@ function tipPrototype:SetColumnColor(colNum, r, g, b, a)
 		error("column number out of range: "..tostring(colNum), 2)
 	end
 	local column = self.columns[colNum]
-	local color = self:GetBackdropColor()
+	local sr, sg, sb, sa = self:GetBackdropColor()
 	column:SetBackdrop(GenericBackdrop)
-	column:SetBackdropColor(r or color.r, g or color.g, b or color.b, a or 1)
+	column:SetBackdropColor(r or sr, g or sg, b or sb, a or sa)
 end
 
 function tipPrototype:SetLineColor(lineNum, r, g, b, a)
@@ -826,9 +826,9 @@ function tipPrototype:SetLineColor(lineNum, r, g, b, a)
 		error("line number out of range: "..tostring(lineNum), 2)
 	end
 	local line = self.lines[lineNum]
-	local color = self:GetBackdropColor()
+	local sr, sg, sb, sa = self:GetBackdropColor()
 	line:SetBackdrop(GenericBackdrop)
-	line:SetBackdropColor(r or color.r, g or color.g, b or color.b, a or 1)
+	line:SetBackdropColor(r or sr, g or sg, b or sb, a or sa)
 end
 
 function tipPrototype:SetCell(lineNum, colNum, value, ...)
