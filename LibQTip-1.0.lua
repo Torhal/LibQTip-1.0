@@ -1,5 +1,5 @@
 local MAJOR = "LibQTip-1.0"
-local MINOR = 21 -- Should be manually increased
+local MINOR = 22 -- Should be manually increased
 assert(LibStub, MAJOR.." requires LibStub")
 
 local lib, oldminor = LibStub:NewLibrary(MAJOR, MINOR)
@@ -610,7 +610,7 @@ end
 
 -- Add 2 pixels to height so dangling letters (g, y, p, j, etc) are not clipped.
 function ResetTooltipSize(tooltip)
-	SetTooltipSize(tooltip, max(0, CELL_MARGIN_H * (#tooltip.columns - 1)), 2)
+	SetTooltipSize(tooltip, max(0, (CELL_MARGIN_H * (#tooltip.columns - 1)) + (CELL_MARGIN_H / 2)), 2)
 end
 
 local function EnlargeColumn(tooltip, column, width)
