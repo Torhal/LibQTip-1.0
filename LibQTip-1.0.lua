@@ -1,5 +1,5 @@
 local MAJOR = "LibQTip-1.0"
-local MINOR = 23 -- Should be manually increased
+local MINOR = 24 -- Should be manually increased
 assert(LibStub, MAJOR.." requires LibStub")
 
 local lib, oldminor = LibStub:NewLibrary(MAJOR, MINOR)
@@ -869,16 +869,20 @@ function tipPrototype:GetColumnCount() return #self.columns end
 ------------------------------------------------------------------------------
 -- Auto-hiding feature
 ------------------------------------------------------------------------------
+
 -- Script of the auto-hiding child frame
 local function AutoHideTimerFrame_OnUpdate(self, elapsed)
-	self.elapsed = self.elapsed + elapsed
-
-	if self.elapsed > self.delay then
-		self.elapsed = 0
-
-		if not MouseIsOver(self.parent) and (self.alternateFrame and not MouseIsOver(self.alternateFrame)) then
-			lib:Release(self.parent)
+	self.checkElapsed = self.checkElapsed + elapsed
+	if self.checkElapsed > 0.1 then
+		if MouseIsOver(self.parent) and (self.alternateFrame and not MouseIsOver(self.alternateFrame)) then
+			self.elapsed = 0
+		else
+			self.elapsed = self.elapsed + self.checkElapsed
+			if self.elapsed >= self.delay then
+				lib:Release(self.parent)
+			end
 		end
+		self.checkElapsed = 0
 	end
 end
 
@@ -897,6 +901,7 @@ function tipPrototype:SetAutoHideDelay(delay, alternateFrame)
 			self.autoHideTimerFrame = timerFrame
 		end
 		timerFrame.parent = self
+		timerFrame.checkElapsed = 0
 		timerFrame.elapsed = 0
 		timerFrame.delay = delay
 		timerFrame.alternateFrame = alternateFrame
