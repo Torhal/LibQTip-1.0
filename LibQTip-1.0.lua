@@ -1,5 +1,5 @@
 local MAJOR = "LibQTip-1.0"
-local MINOR = 24 -- Should be manually increased
+local MINOR = 25 -- Should be manually increased
 assert(LibStub, MAJOR.." requires LibStub")
 
 local lib, oldminor = LibStub:NewLibrary(MAJOR, MINOR)
@@ -874,7 +874,7 @@ function tipPrototype:GetColumnCount() return #self.columns end
 local function AutoHideTimerFrame_OnUpdate(self, elapsed)
 	self.checkElapsed = self.checkElapsed + elapsed
 	if self.checkElapsed > 0.1 then
-		if MouseIsOver(self.parent) and (self.alternateFrame and not MouseIsOver(self.alternateFrame)) then
+		if MouseIsOver(self.parent) or (self.alternateFrame and MouseIsOver(self.alternateFrame)) then
 			self.elapsed = 0
 		else
 			self.elapsed = self.elapsed + self.checkElapsed
