@@ -1,5 +1,5 @@
 local MAJOR = "LibQTip-1.0"
-local MINOR = 25 -- Should be manually increased
+local MINOR = 26 -- Should be manually increased
 assert(LibStub, MAJOR.." requires LibStub")
 
 local lib, oldminor = LibStub:NewLibrary(MAJOR, MINOR)
@@ -756,7 +756,7 @@ local function CreateLine(tooltip, font, ...)
 		error("column layout should be defined before adding line", 3)
 	end
 	local lineNum = #tooltip.lines + 1
-	local line = tooltip.lines[lineNum] or AcquireFrame(tooltip)
+	local line = tooltip.lines[lineNum] or AcquireFrame(tooltip.scrollChild)
 	line:SetPoint('LEFT', tooltip.scrollChild)
 	line:SetPoint('RIGHT', tooltip.scrollChild)
 	if lineNum > 1 then
