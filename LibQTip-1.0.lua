@@ -259,8 +259,6 @@ function labelPrototype:SetupCell(tooltip, value, justification, font, ...)
 		i, min_width = (i + 1), arg
 	end
 
-	-- Use GetHeight() instead of GetStringHeight() so lines which are longer than width will wrap.
-	local height = fs:GetHeight()
 	local width = fs:GetStringWidth() + l_pad + r_pad
 
 	fs:SetPoint("TOPLEFT", self, "TOPLEFT", l_pad, 0)
@@ -269,14 +267,19 @@ function labelPrototype:SetupCell(tooltip, value, justification, font, ...)
 	if max_width and min_width and (max_width < min_width) then
 		error("maximum width cannot be lower than minimum width: "..tostring(max_width).." < "..tostring(min_width), 2)
 	end
-	if min_width and width < min_width then width = min_width end
-	if max_width and (max_width < width) then
-		width = max_width
-		fs:SetWidth(width)
-		height = fs:GetHeight()
+
+	if min_width and width < min_width then
+		width = min_width
 	end
+
+	if max_width and max_width < width then
+		width = max_width
+	end
+	fs:SetWidth(width)
 	fs:Show()
-	return width, height
+
+	-- Use GetHeight() instead of GetStringHeight() so lines which are longer than width will wrap.
+	return width, fs:GetHeight()
 end
 
 function labelPrototype:GetPosition() return self._line, self._column end
