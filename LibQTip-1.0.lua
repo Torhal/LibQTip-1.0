@@ -1,5 +1,5 @@
 local MAJOR = "LibQTip-1.0"
-local MINOR = 26 -- Should be manually increased
+local MINOR = 27 -- Should be manually increased
 assert(LibStub, MAJOR.." requires LibStub")
 
 local lib, oldminor = LibStub:NewLibrary(MAJOR, MINOR)
@@ -63,6 +63,7 @@ local AcquireCell, ReleaseCell
 local AcquireTable, ReleaseTable
 
 local InitializeTooltip, SetTooltipSize, ResetTooltipSize, LayoutColspans
+local SetFrameScript, ClearFrameScripts
 
 ------------------------------------------------------------------------------
 -- Cache debugging.
@@ -140,6 +141,7 @@ local function ReleaseFrame(frame)
 	frame:SetParent(nil)
 	frame:ClearAllPoints()
 	frame:SetBackdrop(nil)
+	ClearFrameScripts(frame)
 	tinsert(frameHeap, frame)
 	--@debug@
 	usedFrames = usedFrames - 1
@@ -345,7 +347,7 @@ end
 function AcquireCell(tooltip, provider)
 	local cell = provider:AcquireCell(tooltip)
 	cell:SetParent(tooltip.scrollChild)
-	cell:SetFrameLevel(tooltip.scrollChild:GetFrameLevel() + 1)
+	cell:SetFrameLevel(tooltip.scrollChild:GetFrameLevel() + 3)
 	cell._provider = provider
 	return cell
 end
@@ -355,6 +357,7 @@ function ReleaseCell(cell)
 	cell:Hide()
 	cell:ClearAllPoints()
 	cell:SetParent(nil)
+	ClearFrameScripts(cell)
 	cell._font, cell._justification, cell._colSpan,	cell._line, cell._column = nil
 
 	cell._provider:ReleaseCell(cell)
@@ -454,8 +457,8 @@ function tipPrototype:AddColumn(justification)
 	checkJustification(justification, 2)
 
 	local colNum = #self.columns + 1
-	local column = self.columns[colNum] or AcquireFrame(self)
-	column:SetParent(self.scrollChild)
+	local column = self.columns[colNum] or AcquireFrame(self.scrollChild)
+	column:SetFrameLevel(self.scrollChild:GetFrameLevel() + 1)
 	column.justification = justification
 	column.width = 0
 	column:SetWidth(1)
@@ -760,6 +763,7 @@ local function CreateLine(tooltip, font, ...)
 	end
 	local lineNum = #tooltip.lines + 1
 	local line = tooltip.lines[lineNum] or AcquireFrame(tooltip.scrollChild)
+	line:SetFrameLevel(tooltip.scrollChild:GetFrameLevel() + 2)
 	line:SetPoint('LEFT', tooltip.scrollChild)
 	line:SetPoint('RIGHT', tooltip.scrollChild)
 	if lineNum > 1 then
@@ -834,6 +838,7 @@ function tipPrototype:SetLineColor(lineNum, r, g, b, a)
 	line:SetBackdropColor(r or sr, g or sg, b or sb, a or sa)
 end
 
+-- TODO: fixed argument positions / remove checks for performance?
 function tipPrototype:SetCell(lineNum, colNum, value, ...)
 	-- Mandatory argument checking
 	if type(lineNum) ~= "number" then
@@ -868,6 +873,103 @@ end
 function tipPrototype:GetLineCount() return #self.lines end
 
 function tipPrototype:GetColumnCount() return #self.columns end
+
+
+------------------------------------------------------------------------------
+-- Frame Scripts
+------------------------------------------------------------------------------
+local highlight = CreateFrame("Frame", nil, UIParent)
+highlight:SetFrameStrata("TOOLTIP")
+highlight:Hide()
+
+highlight._texture = highlight:CreateTexture(nil, "OVERLAY")
+highlight._texture:SetTexture("Interface\\QuestFrame\\UI-QuestTitleHighlight")
+highlight._texture:SetBlendMode("ADD")
+highlight._texture:SetAllPoints(highlight)
+
+local scripts = {
+	OnEnter = function(frame, ...)
+		highlight:SetParent(frame)
+		highlight:SetAllPoints(frame)
+		highlight:Show()
+		if frame._OnEnter_func then
+			frame:_OnEnter_func(frame._OnEnter_arg, ...)
+		end
+	end,
+	OnLeave = function(frame, ...)
+		highlight:Hide()
+		highlight:ClearAllPoints()
+		highlight:SetParent(nil)
+		if frame._OnLeave_func then
+			frame:_OnLeave_func(frame._OnLeave_arg, ...)
+		end
+	end,
+	OnMouseDown = function(frame, ...)
+		frame:_OnMouseDown_func(frame._OnMouseDown_arg, ...)
+	end,
+	OnMouseUp = function(frame, ...)
+		frame:_OnMouseUp_func(frame._OnMouseUp_arg, ...)
+	end,
+}
+
+function SetFrameScript(frame, script, func, arg)
+	if not scripts[script] then
+		return
+	end
+	frame["_"..script.."_func"] = func
+	frame["_"..script.."_arg"] = arg
+	if script == "OnMouseDown" or script == "OnMouseUp" then
+		if func then
+			frame:SetScript(script, scripts[script])
+		else
+			frame:SetScript(script, nil)
+		end
+	end
+	-- if at least one script is set, set the OnEnter/OnLeave scripts for the highlight
+	if frame._OnEnter_func or frame._OnLeave_func or frame._OnMouseDown_func or frame._OnMouseUp_func then
+		frame:EnableMouse(true)
+		frame:SetScript("OnEnter", scripts.OnEnter)
+		frame:SetScript("OnLeave", scripts.OnLeave)
+	else
+		frame:EnableMouse(false)
+		frame:SetScript("OnEnter", nil)
+		frame:SetScript("OnLeave", nil)
+	end
+end
+
+function ClearFrameScripts(frame)
+	if frame._OnEnter_func or frame._OnLeave_func or frame._OnMouseDown_func or frame._OnMouseUp_func then
+		frame:EnableMouse(false)
+		frame:SetScript("OnEnter", nil)
+		frame._OnEnter_func = nil
+		frame._OnEnter_arg = nil
+		frame:SetScript("OnLeave", nil)
+		frame._OnLeave_func = nil
+		frame._OnLeave_arg = nil
+		frame:SetScript("OnMouseDown", nil)
+		frame._OnMouseDown_func = nil
+		frame._OnMouseDown_arg = nil
+		frame:SetScript("OnMouseUp", nil)
+		frame._OnMouseUp_func = nil
+		frame._OnMouseUp_arg = nil
+	end
+end
+
+function tipPrototype:SetLineScript(lineNum, script, func, arg)
+	SetFrameScript(self.lines[lineNum], script, func, arg)
+end
+
+function tipPrototype:SetColumnScript(colNum, script, func, arg)
+	SetFrameScript(self.columns[colNum], script, func, arg)
+end
+
+function tipPrototype:SetCellScript(lineNum, colNum, script, func, arg)
+	local cell = self.lines[lineNum].cells[colNum]
+	if cell then
+		SetFrameScript(cell, script, func, arg)
+	end
+end
+
 
 ------------------------------------------------------------------------------
 -- Auto-hiding feature
