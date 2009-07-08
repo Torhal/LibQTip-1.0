@@ -1,5 +1,5 @@
 local MAJOR = "LibQTip-1.0"
-local MINOR = 27 -- Should be manually increased
+local MINOR = 28 -- Should be manually increased
 assert(LibStub, MAJOR.." requires LibStub")
 
 local lib, oldminor = LibStub:NewLibrary(MAJOR, MINOR)
@@ -233,33 +233,14 @@ function labelPrototype:InitializeCell()
 	self.fontString:SetFontObject(GameTooltipText)
 end
 
-function labelPrototype:SetupCell(tooltip, value, justification, font, ...)
+function labelPrototype:SetupCell(tooltip, value, justification, font, l_pad, r_pad, max_width, min_width, ...)
 	local fs = self.fontString
 	fs:SetFontObject(font or tooltip:GetFont())
 	fs:SetJustifyH(justification)
 	fs:SetText(tostring(value))
 
-	-- Variable argument checking
-	local l_pad, r_pad, max_width, min_width
-	local i, arg = 1, ...
-
-	if arg == nil or type(arg) == "number" then
-		i, l_pad, arg = i + 1, select(i, ...)
-	end
 	l_pad = l_pad or 0
-
-	if arg == nil or type(arg) == "number" then
-		i, r_pad, arg = i + 1, select(i, ...)
-	end
 	r_pad = r_pad or 0
-
-	if arg == nil or type(arg) == "number" then
-		i, max_width, arg = i + 1, select(i, ...)
-	end
-
-	if arg == nil or type(arg) == "number" then
-		i, min_width = (i + 1), arg
-	end
 
 	local width = fs:GetStringWidth() + l_pad + r_pad
 
@@ -269,14 +250,9 @@ function labelPrototype:SetupCell(tooltip, value, justification, font, ...)
 	if max_width and min_width and (max_width < min_width) then
 		error("maximum width cannot be lower than minimum width: "..tostring(max_width).." < "..tostring(min_width), 2)
 	end
+	if min_width and width < min_width then	width = min_width end
+	if max_width and max_width < width then	width = max_width end
 
-	if min_width and width < min_width then
-		width = min_width
-	end
-
-	if max_width and max_width < width then
-		width = max_width
-	end
 	fs:SetWidth(width)
 	fs:Show()
 
@@ -515,6 +491,7 @@ function tipPrototype:UpdateScrolling(maxheight)
 	-- all data is in the tooltip; fix colspan width and prevent the layout cleaner from messing up the tooltip later
 	LayoutColspans(self)
 	layoutCleaner.registry[self] = nil
+
 	local topside = self:GetTop()
 	local bottomside = self:GetBottom()
 	local screensize = UIParent:GetHeight()
