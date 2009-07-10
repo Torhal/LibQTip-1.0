@@ -374,7 +374,7 @@ function InitializeTooltip(tooltip, key)
 	tooltip:SetBackdropColor(GameTooltip:GetBackdropColor())
 	tooltip:SetBackdropBorderColor(GameTooltip:GetBackdropBorderColor())
 	tooltip:SetScale(GameTooltip:GetScale())
-	tooltip:SetAlpha(GameTooltip:GetAlpha())
+	tooltip:SetAlpha(1)
 	tooltip:SetFrameStrata("TOOLTIP")
 	tooltip:SetClampedToScreen(false)
 
