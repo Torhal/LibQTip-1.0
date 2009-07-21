@@ -1,5 +1,5 @@
 local MAJOR = "LibQTip-1.0"
-local MINOR = 28 -- Should be manually increased
+local MINOR = 29 -- Should be manually increased
 assert(LibStub, MAJOR.." requires LibStub")
 
 local lib, oldminor = LibStub:NewLibrary(MAJOR, MINOR)
@@ -333,6 +333,7 @@ function ReleaseCell(cell)
 	cell:Hide()
 	cell:ClearAllPoints()
 	cell:SetParent(nil)
+	cell:SetBackdrop(nil)
 	ClearFrameScripts(cell)
 	cell._font, cell._justification, cell._colSpan,	cell._line, cell._column = nil
 
@@ -791,28 +792,34 @@ function tipPrototype:AddSeparator(height, r, g, b, a)
 	return lineNum, colNum
 end
 
-function tipPrototype:SetColumnColor(colNum, r, g, b, a)
-	if type(colNum) ~= "number" then
-		error("column number must be a number, not: "..tostring(colNum), 2)
-	elseif colNum < 1 or colNum > #self.columns then
-		error("column number out of range: "..tostring(colNum), 2)
+function tipPrototype:SetCellColor(lineNum, colNum, r, g, b, a)
+	local cell = self.lines[lineNum].cells[colNum]
+
+	if cell then
+		local sr, sg, sb, sa = self:GetBackdropColor()
+		cell:SetBackdrop(GenericBackdrop)
+		cell:SetBackdropColor(r or sr, g or sg, b or sb, a or sa)
 	end
+end
+
+function tipPrototype:SetColumnColor(colNum, r, g, b, a)
 	local column = self.columns[colNum]
-	local sr, sg, sb, sa = self:GetBackdropColor()
-	column:SetBackdrop(GenericBackdrop)
-	column:SetBackdropColor(r or sr, g or sg, b or sb, a or sa)
+
+	if column then
+		local sr, sg, sb, sa = self:GetBackdropColor()
+		column:SetBackdrop(GenericBackdrop)
+		column:SetBackdropColor(r or sr, g or sg, b or sb, a or sa)
+	end
 end
 
 function tipPrototype:SetLineColor(lineNum, r, g, b, a)
-	if type(lineNum) ~= "number" then
-		error("line number must be a number, not: "..tostring(lineNum), 2)
-	elseif lineNum < 1 or lineNum > #self.lines then
-		error("line number out of range: "..tostring(lineNum), 2)
-	end
 	local line = self.lines[lineNum]
-	local sr, sg, sb, sa = self:GetBackdropColor()
-	line:SetBackdrop(GenericBackdrop)
-	line:SetBackdropColor(r or sr, g or sg, b or sb, a or sa)
+
+	if line then
+		local sr, sg, sb, sa = self:GetBackdropColor()
+		line:SetBackdrop(GenericBackdrop)
+		line:SetBackdropColor(r or sr, g or sg, b or sb, a or sa)
+	end
 end
 
 -- TODO: fixed argument positions / remove checks for performance?
