@@ -22,7 +22,6 @@ local wipe = wipe
 
 local CreateFrame = CreateFrame
 local UIParent = UIParent
-local MouseIsOver = MouseIsOver
 
 ------------------------------------------------------------------------------
 -- Tables and locals
@@ -963,7 +962,7 @@ end
 local function AutoHideTimerFrame_OnUpdate(self, elapsed)
 	self.checkElapsed = self.checkElapsed + elapsed
 	if self.checkElapsed > 0.1 then
-		if MouseIsOver(self.parent) or (self.alternateFrame and MouseIsOver(self.alternateFrame)) then
+		if self.parent:IsMouseOver() or (self.alternateFrame and self.alternateFrame:IsMouseOver()) then
 			self.elapsed = 0
 		else
 			self.elapsed = self.elapsed + self.checkElapsed
