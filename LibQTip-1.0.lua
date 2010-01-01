@@ -1,5 +1,5 @@
 local MAJOR = "LibQTip-1.0"
-local MINOR = 29 -- Should be manually increased
+local MINOR = 30 -- Should be manually increased
 assert(LibStub, MAJOR.." requires LibStub")
 
 local lib, oldminor = LibStub:NewLibrary(MAJOR, MINOR)
@@ -492,20 +492,26 @@ function tipPrototype:UpdateScrolling(maxheight)
 	LayoutColspans(self)
 	layoutCleaner.registry[self] = nil
 
+	local scale = self:GetScale()
 	local topside = self:GetTop()
 	local bottomside = self:GetBottom()
 	local screensize = UIParent:GetHeight()
 	local tipsize = topside - bottomside
 
+	tipsize = scale < 1 and (tipsize * scale) or (tipsize / scale)
+	screensize = scale < 1 and (screensize * scale) or (screensize / scale)
+
 	-- if the tooltip would be too high, limit its height and show the slider
 	if bottomside < 0 or topside > screensize or (maxheight and tipsize > maxheight) then
 		local shrink = (bottomside < 0 and (5 - bottomside) or 0) + (topside > screensize and (topside - screensize + 5) or 0)
+
 		if maxheight and tipsize - shrink > maxheight then
 			shrink = tipsize - maxheight
 		end
 		self:SetHeight(2 * TOOLTIP_PADDING + self.height - shrink)
 		self:SetWidth(2 * TOOLTIP_PADDING + self.width + 20)
 		self.scrollFrame:SetPoint("RIGHT", self, "RIGHT", -(TOOLTIP_PADDING + 20), 0)
+
 		if not self.slider then
 			local slider = CreateFrame("Slider", nil, self)
 			self.slider = slider
@@ -529,6 +535,7 @@ function tipPrototype:UpdateScrolling(maxheight)
 		self:SetHeight(2 * TOOLTIP_PADDING + self.height)
 		self:SetWidth(2 * TOOLTIP_PADDING + self.width)
 		self.scrollFrame:SetPoint("RIGHT", self, "RIGHT", -TOOLTIP_PADDING, 0)
+
 		if self.slider then
 			self.slider:SetValue(0)
 			self.slider:Hide()
