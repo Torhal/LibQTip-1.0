@@ -476,7 +476,8 @@ end
 local function tooltip_OnMouseWheel(self, delta)
 	local slider = self.slider
 	local currentValue = slider:GetValue()
-	local minValue,maxValue = slider:GetMinMaxValues()
+	local minValue, maxValue = slider:GetMinMaxValues()
+
 	if delta < 0 and currentValue < maxValue then
 		slider:SetValue(min(maxValue, currentValue + 10))
 	elseif delta > 0 and currentValue > minValue then
@@ -495,11 +496,8 @@ function tipPrototype:UpdateScrolling(maxheight)
 	local scale = self:GetScale()
 	local topside = self:GetTop()
 	local bottomside = self:GetBottom()
-	local screensize = UIParent:GetHeight()
-	local tipsize = topside - bottomside
-
-	tipsize = scale < 1 and (tipsize * scale) or (tipsize / scale)
-	screensize = scale < 1 and (screensize * scale) or (screensize / scale)
+	local screensize = UIParent:GetHeight() / scale
+	local tipsize = (topside - bottomside) / scale
 
 	-- if the tooltip would be too high, limit its height and show the slider
 	if bottomside < 0 or topside > screensize or (maxheight and tipsize > maxheight) then
