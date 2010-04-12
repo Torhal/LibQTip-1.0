@@ -1,5 +1,5 @@
 local MAJOR = "LibQTip-1.0"
-local MINOR = 33 -- Should be manually increased
+local MINOR = 34 -- Should be manually increased
 assert(LibStub, MAJOR.." requires LibStub")
 
 local lib, oldminor = LibStub:NewLibrary(MAJOR, MINOR)
@@ -62,6 +62,7 @@ local AcquireCell, ReleaseCell
 local AcquireTable, ReleaseTable
 
 local InitializeTooltip, SetTooltipSize, ResetTooltipSize, LayoutColspans
+local ClearTooltipScripts
 local SetFrameScript, ClearFrameScripts
 
 ------------------------------------------------------------------------------
@@ -319,6 +320,8 @@ function ReleaseTooltip(tooltip)
 
 	tooltip.releasing = nil
 	tooltip.key = nil
+	
+	ClearTooltipScripts(tooltip)
 
 	tooltip:SetAutoHideDelay(nil)
 	tooltip:ClearAllPoints()
@@ -329,7 +332,6 @@ function ReleaseTooltip(tooltip)
 		tooltip.slider:Hide()
 		tooltip.scrollFrame:SetPoint("RIGHT", tooltip, "RIGHT", -TOOLTIP_PADDING, 0)
 		tooltip:EnableMouseWheel(false)
-		tooltip:SetScript("OnMouseWheel", nil)
 	end
 
 	for i, column in ipairs(tooltip.columns) do
@@ -505,6 +507,39 @@ end
 
 function tipPrototype:IsAcquiredBy(key)
 	return key ~= nil and self.key == key
+end
+
+------------------------------------------------------------------------------
+-- Script hooks
+------------------------------------------------------------------------------
+
+local RawSetScript = lib.frameMetatable.__index.SetScript
+
+function ClearTooltipScripts(tooltip)
+	if tooltip.scripts then
+		for scriptType in pairs(tooltip.scripts) do
+			RawSetScript(tooltip, scriptType, nil)
+		end
+		tooltip.scripts = ReleaseTable(tooltip.scripts)
+	end
+end
+
+function tipPrototype:SetScript(scriptType, handler)
+	RawSetScript(self, scriptType, handler)
+	if handler then
+		if not self.scripts then
+			self.scripts = AcquireTable()
+		end
+		self.scripts[scriptType] = true
+	elseif self.scripts then
+		self.scripts[scriptType] = nil
+	end
+end
+
+-- That might break some addons ; those addons were breaking other
+-- addons' tooltip though. 
+function tipPrototype:HookScript()
+	geterrorhandler()(":HookScript is not allowed on LibQTip tooltips")
 end
 
 ------------------------------------------------------------------------------
