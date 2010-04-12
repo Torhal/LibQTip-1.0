@@ -317,7 +317,15 @@ function ReleaseTooltip(tooltip)
 	tooltip.releasing = true
 	
 	tooltip:Hide()
-
+	
+	if tooltip.OnRelease then
+		local success, errorMessage = pcall(tooltip.OnRelease, tooltip)
+		if not success then
+			geterrorhandler()(errorMessage)
+		end
+		tooltip.OnRelease = nil
+	end
+	
 	tooltip.releasing = nil
 	tooltip.key = nil
 	
