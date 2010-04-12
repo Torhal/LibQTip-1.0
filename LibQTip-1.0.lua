@@ -1,5 +1,5 @@
 local MAJOR = "LibQTip-1.0"
-local MINOR = 31 -- Should be manually increased
+local MINOR = 32 -- Should be manually increased
 assert(LibStub, MAJOR.." requires LibStub")
 
 local lib, oldminor = LibStub:NewLibrary(MAJOR, MINOR)
@@ -310,8 +310,17 @@ end
 
 -- Cleans the tooltip and stores it in the cache
 function ReleaseTooltip(tooltip)
-	tooltip:SetAutoHideDelay(nil)
+	if tooltip.releasing then
+		return
+	end
+	tooltip.releasing = true
+	
 	tooltip:Hide()
+
+	tooltip.releasing = nil
+	tooltip.key = nil
+
+	tooltip:SetAutoHideDelay(nil)
 	tooltip:ClearAllPoints()
 	tooltip:Clear()
 
