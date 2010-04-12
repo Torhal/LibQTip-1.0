@@ -1,5 +1,5 @@
 local MAJOR = "LibQTip-1.0"
-local MINOR = 32 -- Should be manually increased
+local MINOR = 33 -- Should be manually increased
 assert(LibStub, MAJOR.." requires LibStub")
 
 local lib, oldminor = LibStub:NewLibrary(MAJOR, MINOR)
@@ -493,6 +493,18 @@ function tipPrototype:AddColumn(justification)
 	column:Show()
 	self.columns[colNum] = column
 	return colNum
+end
+
+------------------------------------------------------------------------------
+-- Convenient methods
+------------------------------------------------------------------------------
+
+function tipPrototype:Release()
+	lib:Release(self)
+end
+
+function tipPrototype:IsAcquiredBy(key)
+	return key ~= nil and self.key == key
 end
 
 ------------------------------------------------------------------------------
