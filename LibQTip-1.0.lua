@@ -1,5 +1,5 @@
 local MAJOR = "LibQTip-1.0"
-local MINOR = 34 -- Should be manually increased
+local MINOR = 35 -- Should be manually increased
 assert(LibStub, MAJOR.." requires LibStub")
 
 local lib, oldminor = LibStub:NewLibrary(MAJOR, MINOR)
@@ -61,7 +61,7 @@ local AcquireTooltip, ReleaseTooltip
 local AcquireCell, ReleaseCell
 local AcquireTable, ReleaseTable
 
-local InitializeTooltip, SetTooltipSize, ResetTooltipSize, LayoutColspans
+local InitializeTooltip, SetTooltipSize, ResetTooltipSize, FixCellSizes
 local ClearTooltipScripts
 local SetFrameScript, ClearFrameScripts
 
@@ -176,7 +176,7 @@ end
 function layoutCleaner:CleanupLayouts()
 	self:Hide()
 	for tooltip in pairs(self.registry) do
-		LayoutColspans(tooltip)
+		FixCellSizes(tooltip)
 	end
 	wipe(self.registry)
 end
@@ -247,6 +247,8 @@ end
 
 function labelPrototype:SetupCell(tooltip, value, justification, font, l_pad, r_pad, max_width, min_width, ...)
 	local fs = self.fontString
+	-- detatch fs from cell for size calculations
+	fs:ClearAllPoints()
 	fs:SetFontObject(font or tooltip:GetFont())
 	fs:SetJustifyH(justification)
 	fs:SetText(tostring(value))
@@ -256,11 +258,12 @@ function labelPrototype:SetupCell(tooltip, value, justification, font, l_pad, r_
 
 	local width = fs:GetStringWidth() + l_pad + r_pad
 
-	fs:SetPoint("TOPLEFT", self, "TOPLEFT", l_pad, 0)
-	fs:SetPoint("BOTTOMRIGHT", self, "BOTTOMRIGHT", -r_pad, 0)
-
 	if max_width and min_width and (max_width < min_width) then
 		error("maximum width cannot be lower than minimum width: "..tostring(max_width).." < "..tostring(min_width), 2)
+	end
+
+	if max_width and (max_width < (l_pad + r_pad)) then
+		error("maximum width cannot be lower than the sum of paddings: "..tostring(max_width).." < "..tostring(l_pad).." + "..tostring(r_pad), 2)
 	end
 
 	if min_width and width < min_width then
@@ -270,11 +273,28 @@ function labelPrototype:SetupCell(tooltip, value, justification, font, l_pad, r_
 	if max_width and max_width < width then
 		width = max_width
 	end
-	fs:SetWidth(width)
-	fs:Show()
-
+	fs:SetWidth(width - (l_pad + r_pad))
 	-- Use GetHeight() instead of GetStringHeight() so lines which are longer than width will wrap.
-	return width, fs:GetHeight()
+	local height = fs:GetHeight()
+
+	-- reanchor fs to cell
+	fs:SetWidth(0)
+	fs:SetPoint("TOPLEFT", self, "TOPLEFT", l_pad, 0)
+	fs:SetPoint("BOTTOMRIGHT", self, "BOTTOMRIGHT", -r_pad, 0)
+--~ 	fs:SetPoint("TOPRIGHT", self, "TOPRIGHT", -r_pad, 0)
+
+	self._paddingL = l_pad
+	self._paddingR = r_pad
+
+	return width, height
+end
+
+function labelPrototype:getContentHeight()
+	local fs = self.fontString
+	fs:SetWidth(self:GetWidth() - (self._paddingL + self._paddingR))
+	local height = self.fontString:GetHeight()
+	fs:SetWidth(0)
+	return height
 end
 
 function labelPrototype:GetPosition() return self._line, self._column end
@@ -588,7 +608,7 @@ function tipPrototype:UpdateScrolling(maxheight)
 	self:SetClampedToScreen(false)
 
 	-- all data is in the tooltip; fix colspan width and prevent the layout cleaner from messing up the tooltip later
-	LayoutColspans(self)
+	FixCellSizes(self)
 	layoutCleaner.registry[self] = nil
 
 	local scale = self:GetScale()
@@ -741,20 +761,65 @@ local function EnlargeColumn(tooltip, column, width)
 	end
 end
 
-function LayoutColspans(tooltip)
+local function ResizeLine(tooltip, line, height)
+	SetTooltipSize(tooltip, tooltip.width, tooltip.height + height - line.height)
+
+	line.height = height
+	line:SetHeight(height)
+end
+
+function FixCellSizes(tooltip)
 	local columns = tooltip.columns
+	local colspans = tooltip.colspans
+	local lines = tooltip.lines
 
-	for colRange, width in pairs(tooltip.colspans) do
-		local h_margin = tooltip.cell_margin_h or CELL_MARGIN_H
-		local left, right = colRange:match("^(%d+)%-(%d+)$")
-		left, right = tonumber(left), tonumber(right)
-
-		for col = left, right-1 do
-			width = width - columns[col].width - h_margin
+	-- resize columns to make room for the colspans
+	local h_margin = tooltip.cell_margin_h or CELL_MARGIN_H
+	while next(colspans) do
+		local maxNeedCols = nil
+		local maxNeedWidthPerCol = 0
+		-- calculate the colspan with the highest additional width need per column
+		for colRange, width in pairs(colspans) do
+			local left, right = colRange:match("^(%d+)%-(%d+)$")
+			left, right = tonumber(left), tonumber(right)
+			for col = left, right-1 do
+				width = width - columns[col].width - h_margin
+			end
+			width = width - columns[right].width
+			if width <=0 then
+				colspans[colRange] = nil
+			else
+				width = width / (right - left + 1)
+				if width > maxNeedWidthPerCol then
+					maxNeedCols = colRange
+					maxNeedWidthPerCol = width
+				end
+			end
 		end
-		EnlargeColumn(tooltip, columns[right], width)
+		-- resize all columns for that colspan
+		if maxNeedCols then
+			local left, right = maxNeedCols:match("^(%d+)%-(%d+)$")
+			for col = left, right do
+				EnlargeColumn(tooltip, columns[col], columns[col].width + maxNeedWidthPerCol)
+			end
+			colspans[maxNeedCols] = nil
+		end
 	end
-	wipe(tooltip.colspans)
+	
+	--now that the cell width is set, recalculate the rows' height
+	for _, line in ipairs(lines) do
+		if #(line.cells) > 0 then
+			local lineheight = 0
+			for _, cell in pairs(line.cells) do
+				if cell then
+					lineheight = max(lineheight, cell:getContentHeight())
+				end
+			end
+			if lineheight > 0 then
+				ResizeLine(tooltip, line, lineheight)
+			end
+		end
+	end
 end
 
 local function _SetCell(tooltip, lineNum, colNum, value, font, justification, colSpan, provider, ...)
@@ -848,7 +913,7 @@ local function _SetCell(tooltip, lineNum, colNum, value, font, justification, co
 
 	-- Store the cell settings directly into the cell
 	-- That's a bit risky but is really cheap compared to other ways to do it
-	cell._font, cell._justification, cell._colSpan,	cell._line, cell._column = font, justification, colSpan, lineNum, colNum
+	cell._font, cell._justification, cell._colSpan, cell._line, cell._column = font, justification, colSpan, lineNum, colNum
 
 	-- Setup the cell content
 	local width, height = cell:SetupCell(tooltip, value, justification, font, ...)
