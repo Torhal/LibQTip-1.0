@@ -432,9 +432,14 @@ function InitializeTooltip(tooltip, key)
 	----------------------------------------------------------------------
 	-- (Re)set frame settings
 	----------------------------------------------------------------------
-	tooltip:SetBackdrop(GameTooltip:GetBackdrop())
-	tooltip:SetBackdropColor(GameTooltip:GetBackdropColor())
-	tooltip:SetBackdropBorderColor(GameTooltip:GetBackdropBorderColor())
+	local backdrop = GameTooltip:GetBackdrop()
+
+	tooltip:SetBackdrop(backdrop)
+
+	if backdrop then
+		tooltip:SetBackdropColor(GameTooltip:GetBackdropColor())
+		tooltip:SetBackdropBorderColor(GameTooltip:GetBackdropBorderColor())
+	end
 	tooltip:SetScale(GameTooltip:GetScale())
 	tooltip:SetAlpha(1)
 	tooltip:SetFrameStrata("TOOLTIP")
