@@ -1119,6 +1119,9 @@ local scripts = {
 	OnMouseUp = function(frame, ...)
 		frame:_OnMouseUp_func(frame._OnMouseUp_arg, ...)
 	end,
+	OnReceiveDrag = function(frame, ...)
+		frame:_OnReceiveDrag_func(frame._OnReceiveDrag_arg, ...)
+	end,
 }
 
 function SetFrameScript(frame, script, func, arg)
@@ -1128,7 +1131,7 @@ function SetFrameScript(frame, script, func, arg)
 	frame["_"..script.."_func"] = func
 	frame["_"..script.."_arg"] = arg
 
-	if script == "OnMouseDown" or script == "OnMouseUp" then
+	if script == "OnMouseDown" or script == "OnMouseUp" or script == "OnReceiveDrag" then
 		if func then
 			frame:SetScript(script, scripts[script])
 		else
@@ -1137,7 +1140,7 @@ function SetFrameScript(frame, script, func, arg)
 	end
 
 	-- if at least one script is set, set the OnEnter/OnLeave scripts for the highlight
-	if frame._OnEnter_func or frame._OnLeave_func or frame._OnMouseDown_func or frame._OnMouseUp_func then
+	if frame._OnEnter_func or frame._OnLeave_func or frame._OnMouseDown_func or frame._OnMouseUp_func or frame._OnReceiveDrag_func then
 		frame:EnableMouse(true)
 		frame:SetScript("OnEnter", scripts.OnEnter)
 		frame:SetScript("OnLeave", scripts.OnLeave)
@@ -1149,7 +1152,7 @@ function SetFrameScript(frame, script, func, arg)
 end
 
 function ClearFrameScripts(frame)
-	if frame._OnEnter_func or frame._OnLeave_func or frame._OnMouseDown_func or frame._OnMouseUp_func then
+	if frame._OnEnter_func or frame._OnLeave_func or frame._OnMouseDown_func or frame._OnMouseUp_func or frame._OnReceiveDrag_func then
 		frame:EnableMouse(false)
 		frame:SetScript("OnEnter", nil)
 		frame._OnEnter_func = nil
@@ -1157,6 +1160,9 @@ function ClearFrameScripts(frame)
 		frame:SetScript("OnLeave", nil)
 		frame._OnLeave_func = nil
 		frame._OnLeave_arg = nil
+		frame:SetScript("OnReceiveDrag", nil)
+		frame._OnReceiveDrag_func = nil
+		frame._OnReceiveDrag_arg = nil
 		frame:SetScript("OnMouseDown", nil)
 		frame._OnMouseDown_func = nil
 		frame._OnMouseDown_arg = nil
