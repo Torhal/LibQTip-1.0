@@ -1,5 +1,5 @@
 local MAJOR = "LibQTip-1.0"
-local MINOR = 36 -- Should be manually increased
+local MINOR = 37 -- Should be manually increased
 assert(LibStub, MAJOR.." requires LibStub")
 
 local lib, oldminor = LibStub:NewLibrary(MAJOR, MINOR)
@@ -247,9 +247,11 @@ end
 
 function labelPrototype:SetupCell(tooltip, value, justification, font, l_pad, r_pad, max_width, min_width, ...)
 	local fs = self.fontString
+	local line = tooltip.lines[self._line]
+
 	-- detatch fs from cell for size calculations
 	fs:ClearAllPoints()
-	fs:SetFontObject(font or tooltip:GetFont())
+	fs:SetFontObject(font or (line.is_header and tooltip:GetHeaderFont() or tooltip:GetFont()))
 	fs:SetJustifyH(justification)
 	fs:SetText(tostring(value))
 
@@ -396,7 +398,12 @@ function ReleaseCell(cell)
 	cell:SetParent(nil)
 	cell:SetBackdrop(nil)
 	ClearFrameScripts(cell)
-	cell._font, cell._justification, cell._colSpan,	cell._line, cell._column = nil
+
+	cell._font = nil
+	cell._justification = nil
+	cell._colSpan = nil
+	cell._line = nil
+	cell._column = nil
 
 	cell._provider:ReleaseCell(cell)
 	cell._provider = nil
@@ -680,6 +687,7 @@ function tipPrototype:Clear()
 		end
 		ReleaseTable(line.cells)
 		line.cells = nil
+		line.is_header = nil
 		ReleaseFrame(line)
 		self.lines[i] = nil
 	end
@@ -870,7 +878,7 @@ local function _SetCell(tooltip, lineNum, colNum, value, font, justification, co
 	elseif prevCell == nil then
 		-- Creating a new cell, using meaningful defaults.
 		provider = provider or tooltip.labelProvider
-		font = font or tooltip.regularFont
+		font = font or (line.is_header and tooltip.headerFont or tooltip.regularFont)
 		justification = justification or tooltip.columns[colNum].justification or "LEFT"
 		colSpan = colSpan or 1
 	else
@@ -992,7 +1000,10 @@ function tipPrototype:AddLine(...)
 end
 
 function tipPrototype:AddHeader(...)
-	return CreateLine(self, self.headerFont, ...)
+	local line, col = CreateLine(self, self.headerFont, ...)
+
+	self.lines[line].is_header = true
+	return line, col
 end
 
 local GenericBackdrop = {
