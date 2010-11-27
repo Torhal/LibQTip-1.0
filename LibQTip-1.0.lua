@@ -8,6 +8,8 @@ if not lib then return end -- No upgrade needed
 ------------------------------------------------------------------------------
 -- Upvalued globals
 ------------------------------------------------------------------------------
+local _G = getfenv(0)
+
 local type = type
 local select = select
 local error = error
@@ -724,30 +726,6 @@ function tipPrototype:SetCellMarginV(size)
 	self.cell_margin_v = size
 end
 
-local function checkFont(font, level, silent)
-	if not font or type(font) ~= 'table' or type(font.IsObjectType) ~= 'function' or not font:IsObjectType("Font") then
-		if silent then
-			return false
-		end
-		error("font must be Font instance, not: "..tostring(font), level + 1)
-	end
-	return true
-end
-
-function tipPrototype:SetFont(font)
-	checkFont(font, 2)
-	self.regularFont = font
-end
-
-function tipPrototype:GetFont() return self.regularFont end
-
-function tipPrototype:SetHeaderFont(font)
-	checkFont(font, 2)
-	self.headerFont = font
-end
-
-function tipPrototype:GetHeaderFont() return self.headerFont end
-
 function SetTooltipSize(tooltip, width, height)
 	tooltip:SetHeight(2 * TOOLTIP_PADDING + height)
 	tooltip.scrollChild:SetHeight(height)
@@ -958,53 +936,55 @@ local function _SetCell(tooltip, lineNum, colNum, value, font, justification, co
 	end
 end
 
-local function CreateLine(tooltip, font, ...)
-	if #tooltip.columns == 0 then
-		error("column layout should be defined before adding line", 3)
-	end
-	local lineNum = #tooltip.lines + 1
-	local line = tooltip.lines[lineNum] or AcquireFrame(tooltip.scrollChild)
-
-	line:SetFrameLevel(tooltip.scrollChild:GetFrameLevel() + 2)
-	line:SetPoint('LEFT', tooltip.scrollChild)
-	line:SetPoint('RIGHT', tooltip.scrollChild)
-
-	if lineNum > 1 then
-		local v_margin = tooltip.cell_margin_v or CELL_MARGIN_V
-
-		line:SetPoint('TOP', tooltip.lines[lineNum-1], 'BOTTOM', 0, -v_margin)
-		SetTooltipSize(tooltip, tooltip.width, tooltip.height + v_margin)
-	else
-		line:SetPoint('TOP', tooltip.scrollChild)
-	end
-	tooltip.lines[lineNum] = line
-	line.cells = line.cells or AcquireTable()
-	line.height = 0
-	line:SetHeight(1)
-	line:Show()
-
-	local colNum = 1
-
-	for i = 1, #tooltip.columns do
-		local value = select(i, ...)
-
-		if value ~= nil then
-			lineNum, colNum = _SetCell(tooltip, lineNum, i, value, font, nil, 1, tooltip.labelProvider)
+do
+	local function CreateLine(tooltip, font, ...)
+		if #tooltip.columns == 0 then
+			error("column layout should be defined before adding line", 3)
 		end
+		local lineNum = #tooltip.lines + 1
+		local line = tooltip.lines[lineNum] or AcquireFrame(tooltip.scrollChild)
+
+		line:SetFrameLevel(tooltip.scrollChild:GetFrameLevel() + 2)
+		line:SetPoint('LEFT', tooltip.scrollChild)
+		line:SetPoint('RIGHT', tooltip.scrollChild)
+
+		if lineNum > 1 then
+			local v_margin = tooltip.cell_margin_v or CELL_MARGIN_V
+
+			line:SetPoint('TOP', tooltip.lines[lineNum-1], 'BOTTOM', 0, -v_margin)
+			SetTooltipSize(tooltip, tooltip.width, tooltip.height + v_margin)
+		else
+			line:SetPoint('TOP', tooltip.scrollChild)
+		end
+		tooltip.lines[lineNum] = line
+		line.cells = line.cells or AcquireTable()
+		line.height = 0
+		line:SetHeight(1)
+		line:Show()
+
+		local colNum = 1
+
+		for i = 1, #tooltip.columns do
+			local value = select(i, ...)
+
+			if value ~= nil then
+				lineNum, colNum = _SetCell(tooltip, lineNum, i, value, font, nil, 1, tooltip.labelProvider)
+			end
+		end
+		return lineNum, colNum
 	end
-	return lineNum, colNum
-end
 
-function tipPrototype:AddLine(...)
-	return CreateLine(self, self.regularFont, ...)
-end
+	function tipPrototype:AddLine(...)
+		return CreateLine(self, self.regularFont, ...)
+	end
 
-function tipPrototype:AddHeader(...)
-	local line, col = CreateLine(self, self.headerFont, ...)
+	function tipPrototype:AddHeader(...)
+		local line, col = CreateLine(self, self.headerFont, ...)
 
-	self.lines[line].is_header = true
-	return line, col
-end
+		self.lines[line].is_header = true
+		return line, col
+	end
+end	-- do-block
 
 local GenericBackdrop = {
 	bgFile = "Interface\\Tooltips\\UI-Tooltip-Background",
@@ -1054,40 +1034,88 @@ function tipPrototype:SetLineColor(lineNum, r, g, b, a)
 	end
 end
 
--- TODO: fixed argument positions / remove checks for performance?
-function tipPrototype:SetCell(lineNum, colNum, value, ...)
-	-- Mandatory argument checking
-	if type(lineNum) ~= "number" then
-		error("line number must be a number, not: "..tostring(lineNum), 2)
-	elseif lineNum < 1 or lineNum > #self.lines then
-		error("line number out of range: "..tostring(lineNum), 2)
-	elseif type(colNum) ~= "number" then
-		error("column number must be a number, not: "..tostring(colNum), 2)
-	elseif colNum < 1 or colNum > #self.columns then
-		error("column number out of range: "..tostring(colNum), 2)
+do
+	local function checkFont(font, level, silent)
+		local bad = false
+
+		if not font then
+			bad = true
+		elseif type(font) == "string" then
+			local ref = _G[font] 
+
+			if not ref or type(ref) ~= 'table' or type(ref.IsObjectType) ~= 'function' or not ref:IsObjectType("Font") then
+				bad = true
+			end
+		elseif type(font) ~= 'table' or type(font.IsObjectType) ~= 'function' or not font:IsObjectType("Font") then
+			bad = true
+		end
+
+		if bad then
+			if silent then
+				return false
+			end
+			error("font must be a Font instance or a string matching the name of a global Font instance, not: "..tostring(font), level + 1)
+		end
+		return true
 	end
 
-	-- Variable argument checking
-	local font, justification, colSpan, provider
-	local i, arg = 1, ...
+	function tipPrototype:SetFont(font)
+		local is_string = type(font) == "string"
 
-	if arg == nil or checkFont(arg, 2, true) then
-		i, font, arg = 2, ...
+		checkFont(font, 2)
+		self.regularFont = is_string and _G[font] or font
 	end
 
-	if arg == nil or checkJustification(arg, 2, true) then
-		i, justification, arg = i + 1, select(i, ...)
+	function tipPrototype:SetHeaderFont(font)
+		local is_string = type(font) == "string"
+
+		checkFont(font, 2)
+		self.headerFont = is_string and _G[font] or font
 	end
 
-	if arg == nil or type(arg) == 'number' then
-		i, colSpan, arg = i + 1, select(i, ...)
-	end
+	-- TODO: fixed argument positions / remove checks for performance?
+	function tipPrototype:SetCell(lineNum, colNum, value, ...)
+		-- Mandatory argument checking
+		if type(lineNum) ~= "number" then
+			error("line number must be a number, not: "..tostring(lineNum), 2)
+		elseif lineNum < 1 or lineNum > #self.lines then
+			error("line number out of range: "..tostring(lineNum), 2)
+		elseif type(colNum) ~= "number" then
+			error("column number must be a number, not: "..tostring(colNum), 2)
+		elseif colNum < 1 or colNum > #self.columns then
+			error("column number out of range: "..tostring(colNum), 2)
+		end
 
-	if arg == nil or type(arg) == 'table' and type(arg.AcquireCell) == 'function' then
-		i, provider = i + 1, arg
-	end
+		-- Variable argument checking
+		local font, justification, colSpan, provider
+		local i, arg = 1, ...
 
-	return _SetCell(self, lineNum, colNum, value, font, justification, colSpan, provider, select(i, ...))
+		if arg == nil or checkFont(arg, 2, true) then
+			i, font, arg = 2, ...
+		end
+
+		if arg == nil or checkJustification(arg, 2, true) then
+			i, justification, arg = i + 1, select(i, ...)
+		end
+
+		if arg == nil or type(arg) == 'number' then
+			i, colSpan, arg = i + 1, select(i, ...)
+		end
+
+		if arg == nil or type(arg) == 'table' and type(arg.AcquireCell) == 'function' then
+			i, provider = i + 1, arg
+		end
+
+		return _SetCell(self, lineNum, colNum, value, font, justification, colSpan, provider, select(i, ...))
+	end
+end	-- do-block
+
+function tipPrototype:GetFont()
+	return self.regularFont
+end
+
+function tipPrototype:GetHeaderFont()
+	return self.headerFont
 end
 
 function tipPrototype:GetLineCount() return #self.lines end
