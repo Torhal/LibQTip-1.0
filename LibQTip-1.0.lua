@@ -1,5 +1,5 @@
 local MAJOR = "LibQTip-1.0"
-local MINOR = 37 -- Should be manually increased
+local MINOR = 38 -- Should be manually increased
 assert(LibStub, MAJOR.." requires LibStub")
 
 local lib, oldminor = LibStub:NewLibrary(MAJOR, MINOR)
@@ -829,6 +829,7 @@ local function _SetCell(tooltip, lineNum, colNum, value, font, justification, co
 		end
 		return lineNum, colNum
 	end
+	font = font or (line.is_header and tooltip.headerFont or tooltip.regularFont)
 
 	-- Check previous cell
 	local cell
@@ -836,7 +837,6 @@ local function _SetCell(tooltip, lineNum, colNum, value, font, justification, co
 
 	if prevCell then
 		-- There is a cell here
-		font = font or prevCell._font
 		justification = justification or prevCell._justification
 		colSpan = colSpan or prevCell._colSpan
 
@@ -856,7 +856,6 @@ local function _SetCell(tooltip, lineNum, colNum, value, font, justification, co
 	elseif prevCell == nil then
 		-- Creating a new cell, using meaningful defaults.
 		provider = provider or tooltip.labelProvider
-		font = font or (line.is_header and tooltip.headerFont or tooltip.regularFont)
 		justification = justification or tooltip.columns[colNum].justification or "LEFT"
 		colSpan = colSpan or 1
 	else
