@@ -636,7 +636,7 @@ function tipPrototype:UpdateScrolling(maxheight)
 	local topside = self:GetTop()
 	local bottomside = self:GetBottom()
 	local screensize = UIParent:GetHeight() / scale
-	local tipsize = (topside - bottomside) / scale
+	local tipsize = (topside - bottomside)
 
 	-- if the tooltip would be too high, limit its height and show the slider
 	if bottomside < 0 or topside > screensize or (maxheight and tipsize > maxheight) then
