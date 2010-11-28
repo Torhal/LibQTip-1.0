@@ -352,6 +352,7 @@ function ReleaseTooltip(tooltip)
 	
 	tooltip.releasing = nil
 	tooltip.key = nil
+	tooltip.step = nil
 	
 	ClearTooltipScripts(tooltip)
 
@@ -609,12 +610,18 @@ local function tooltip_OnMouseWheel(self, delta)
 	local slider = self.slider
 	local currentValue = slider:GetValue()
 	local minValue, maxValue = slider:GetMinMaxValues()
+	local stepValue = self.step or 10
 
 	if delta < 0 and currentValue < maxValue then
-		slider:SetValue(min(maxValue, currentValue + 10))
+		slider:SetValue(min(maxValue, currentValue + stepValue))
 	elseif delta > 0 and currentValue > minValue then
-		slider:SetValue(max(minValue, currentValue - 10))
+		slider:SetValue(max(minValue, currentValue - stepValue))
 	end
+end
+
+-- Set the step size for the scroll bar
+function tipPrototype:SetScrollStep(step)
+	self.step = step
 end
 
 -- will resize the tooltip to fit the screen and show a scrollbar if needed
