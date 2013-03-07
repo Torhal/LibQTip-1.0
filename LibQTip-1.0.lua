@@ -1,5 +1,5 @@
 local MAJOR = "LibQTip-1.0"
-local MINOR = 38 -- Should be manually increased
+local MINOR = 39 -- Should be manually increased
 assert(LibStub, MAJOR.." requires LibStub")
 
 local lib, oldminor = LibStub:NewLibrary(MAJOR, MINOR)
@@ -17,6 +17,7 @@ local pairs, ipairs = pairs, ipairs
 local tonumber, tostring = tonumber, tostring
 local strfind = string.find
 local math = math
+local next = next
 local min, max = math.min, math.max
 local setmetatable = setmetatable
 local tinsert, tremove = tinsert, tremove
@@ -84,12 +85,12 @@ local CELL_MARGIN_V = 3
 ------------------------------------------------------------------------------
 -- Public library API
 ------------------------------------------------------------------------------
---- Create or retrieve the tooltip with the given key. 
+--- Create or retrieve the tooltip with the given key.
 -- If additional arguments are passed, they are passed to :SetColumnLayout for the acquired tooltip.
 -- @name LibQTip:Acquire(key[, numColumns, column1Justification, column2justification, ...])
--- @param key string or table - the tooltip key. Any value that can be used as a table key is accepted though you should try to provide unique keys to avoid conflicts. 
--- Numbers and booleans should be avoided and strings should be carefully chosen to avoid namespace clashes - no "MyTooltip" - you have been warned! 
--- @return tooltip Frame object - the acquired tooltip. 
+-- @param key string or table - the tooltip key. Any value that can be used as a table key is accepted though you should try to provide unique keys to avoid conflicts.
+-- Numbers and booleans should be avoided and strings should be carefully chosen to avoid namespace clashes - no "MyTooltip" - you have been warned!
+-- @return tooltip Frame object - the acquired tooltip.
 -- @usage Acquire a tooltip with at least 5 columns, justification : left, center, left, left, left
 -- <pre>local tip = LibStub('LibQTip-1.0'):Acquire('MyFooBarTooltip', 5, "LEFT", "CENTER")</pre>
 function lib:Acquire(key, ...)
@@ -110,7 +111,7 @@ function lib:Acquire(key, ...)
 
 		if not ok then
 			error(msg, 2)
-		end 
+		end
 	end
 	return tooltip
 end
@@ -289,6 +290,7 @@ function labelPrototype:SetupCell(tooltip, value, justification, font, l_pad, r_
 
 	self._paddingL = l_pad
 	self._paddingR = r_pad
+	self._tooltip = tooltip
 
 	return width, height
 end
@@ -339,9 +341,9 @@ function ReleaseTooltip(tooltip)
 		return
 	end
 	tooltip.releasing = true
-	
+
 	tooltip:Hide()
-	
+
 	if tooltip.OnRelease then
 		local success, errorMessage = pcall(tooltip.OnRelease, tooltip)
 		if not success then
@@ -349,11 +351,11 @@ function ReleaseTooltip(tooltip)
 		end
 		tooltip.OnRelease = nil
 	end
-	
+
 	tooltip.releasing = nil
 	tooltip.key = nil
 	tooltip.step = nil
-	
+
 	ClearTooltipScripts(tooltip)
 
 	tooltip:SetAutoHideDelay(nil)
@@ -396,17 +398,22 @@ end
 
 -- Cleans the cell hands it to its provider for storing
 function ReleaseCell(cell)
-	cell:Hide()
-	cell:ClearAllPoints()
-	cell:SetParent(nil)
-	cell:SetBackdrop(nil)
-	ClearFrameScripts(cell)
+	local tooltip = cell._tooltip
+	local font = (tooltip.lines[cell._line].is_header and tooltip.headerFont or tooltip.regularFont)
 
+	cell.fontString:SetTextColor(font:GetTextColor())
 	cell._font = nil
 	cell._justification = nil
 	cell._colSpan = nil
 	cell._line = nil
 	cell._column = nil
+	cell._tooltip = nil
+
+	cell:Hide()
+	cell:ClearAllPoints()
+	cell:SetParent(nil)
+	cell:SetBackdrop(nil)
+	ClearFrameScripts(cell)
 
 	cell._provider:ReleaseCell(cell)
 	cell._provider = nil
@@ -484,7 +491,9 @@ function tipPrototype:SetDefaultProvider(myProvider)
 	self.labelProvider = myProvider
 end
 
-function tipPrototype:GetDefaultProvider() return self.labelProvider end
+function tipPrototype:GetDefaultProvider()
+	return self.labelProvider
+end
 
 local function checkJustification(justification, level, silent)
 	if justification ~= "LEFT" and justification ~= "CENTER" and justification ~= "RIGHT" then
@@ -580,7 +589,7 @@ function tipPrototype:SetScript(scriptType, handler)
 end
 
 -- That might break some addons ; those addons were breaking other
--- addons' tooltip though. 
+-- addons' tooltip though.
 function tipPrototype:HookScript()
 	geterrorhandler()(":HookScript is not allowed on LibQTip tooltips")
 end
@@ -774,16 +783,19 @@ function FixCellSizes(tooltip)
 	-- resize columns to make room for the colspans
 	local h_margin = tooltip.cell_margin_h or CELL_MARGIN_H
 	while next(colspans) do
-		local maxNeedCols = nil
+		local maxNeedCols
 		local maxNeedWidthPerCol = 0
+
 		-- calculate the colspan with the highest additional width need per column
 		for colRange, width in pairs(colspans) do
 			local left, right = colRange:match("^(%d+)%-(%d+)$")
 			left, right = tonumber(left), tonumber(right)
+
 			for col = left, right-1 do
 				width = width - columns[col].width - h_margin
 			end
 			width = width - columns[right].width
+
 			if width <=0 then
 				colspans[colRange] = nil
 			else
@@ -803,7 +815,7 @@ function FixCellSizes(tooltip)
 			colspans[maxNeedCols] = nil
 		end
 	end
-	
+
 	--now that the cell width is set, recalculate the rows' height
 	for _, line in ipairs(lines) do
 		if #(line.cells) > 0 then
@@ -999,7 +1011,7 @@ local GenericBackdrop = {
 function tipPrototype:AddSeparator(height, r, g, b, a)
 	local lineNum, colNum = self:AddLine()
 	local line = self.lines[lineNum]
-	local color = NORMAL_FONT_COLOR
+	local color = _G.NORMAL_FONT_COLOR
 
 	height = height or 1
 	SetTooltipSize(self, self.width, self.height + height)
@@ -1040,6 +1052,44 @@ function tipPrototype:SetLineColor(lineNum, r, g, b, a)
 	end
 end
 
+function tipPrototype:SetCellTextColor(lineNum, colNum, r, g, b, a)
+	local line = self.lines[lineNum]
+	local column = self.columns[colNum]
+
+	if not line or not column then
+		return
+	end
+	local cell = self.lines[lineNum].cells[colNum]
+	local font = (line.is_header and self.headerFont or self.regularFont)
+
+	if cell then
+		local sr, sg, sb, sa = font:GetTextColor()
+		cell.fontString:SetTextColor(r or sr, g or sg, b or sb, a or sa)
+	end
+end
+
+function tipPrototype:SetColumnTextColor(colNum, r, g, b, a)
+	if not self.columns[colNum] then
+		return
+	end
+
+	for line_index = 1, #self.lines do
+		self:SetCellTextColor(line_index, colNum, r, g, b, a)
+	end
+end
+
+function tipPrototype:SetLineTextColor(lineNum, r, g, b, a)
+	local line = self.lines[lineNum]
+
+	if not line then
+		return
+	end
+
+	for cell_index = 1, #line.cells do
+		self:SetCellTextColor(lineNum, line.cells[cell_index]._column, r, g, b, a)
+	end
+end
+
 do
 	local function checkFont(font, level, silent)
 		local bad = false
@@ -1047,7 +1097,7 @@ do
 		if not font then
 			bad = true
 		elseif type(font) == "string" then
-			local ref = _G[font] 
+			local ref = _G[font]
 
 			if not ref or type(ref) ~= 'table' or type(ref.IsObjectType) ~= 'function' or not ref:IsObjectType("Font") then
 				bad = true
