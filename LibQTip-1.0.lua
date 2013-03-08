@@ -1,6 +1,6 @@
 local MAJOR = "LibQTip-1.0"
-local MINOR = 39 -- Should be manually increased
-assert(LibStub, MAJOR.." requires LibStub")
+local MINOR = 40 -- Should be manually increased
+assert(LibStub, MAJOR .. " requires LibStub")
 
 local lib, oldminor = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end -- No upgrade needed
@@ -29,13 +29,13 @@ local UIParent = UIParent
 ------------------------------------------------------------------------------
 -- Tables and locals
 ------------------------------------------------------------------------------
-lib.frameMetatable = lib.frameMetatable or {__index = CreateFrame("Frame")}
+lib.frameMetatable = lib.frameMetatable or { __index = CreateFrame("Frame") }
 
 lib.tipPrototype = lib.tipPrototype or setmetatable({}, lib.frameMetatable)
-lib.tipMetatable = lib.tipMetatable or {__index = lib.tipPrototype}
+lib.tipMetatable = lib.tipMetatable or { __index = lib.tipPrototype }
 
 lib.providerPrototype = lib.providerPrototype or {}
-lib.providerMetatable = lib.providerMetatable or {__index = lib.providerPrototype}
+lib.providerMetatable = lib.providerMetatable or { __index = lib.providerPrototype }
 
 lib.cellPrototype = lib.cellPrototype or setmetatable({}, lib.frameMetatable)
 lib.cellMetatable = lib.cellMetatable or { __index = lib.cellPrototype }
@@ -71,7 +71,7 @@ local SetFrameScript, ClearFrameScripts
 ------------------------------------------------------------------------------
 -- Cache debugging.
 ------------------------------------------------------------------------------
---@debug@
+-- @debug @
 local usedTables, usedFrames, usedTooltips = 0, 0, 0
 --@end-debug@
 
@@ -183,6 +183,7 @@ function layoutCleaner:CleanupLayouts()
 	end
 	wipe(self.registry)
 end
+
 layoutCleaner:SetScript('OnUpdate', layoutCleaner.CleanupLayouts)
 
 ------------------------------------------------------------------------------
@@ -245,7 +246,7 @@ local labelPrototype = lib.LabelPrototype
 
 function labelPrototype:InitializeCell()
 	self.fontString = self:CreateFontString()
-	self.fontString:SetFontObject(GameTooltipText)
+	self.fontString:SetFontObject(_G.GameTooltipText)
 end
 
 function labelPrototype:SetupCell(tooltip, value, justification, font, l_pad, r_pad, max_width, min_width, ...)
@@ -264,11 +265,11 @@ function labelPrototype:SetupCell(tooltip, value, justification, font, l_pad, r_
 	local width = fs:GetStringWidth() + l_pad + r_pad
 
 	if max_width and min_width and (max_width < min_width) then
-		error("maximum width cannot be lower than minimum width: "..tostring(max_width).." < "..tostring(min_width), 2)
+		error("maximum width cannot be lower than minimum width: " .. tostring(max_width) .. " < " .. tostring(min_width), 2)
 	end
 
 	if max_width and (max_width < (l_pad + r_pad)) then
-		error("maximum width cannot be lower than the sum of paddings: "..tostring(max_width).." < "..tostring(l_pad).." + "..tostring(r_pad), 2)
+		error("maximum width cannot be lower than the sum of paddings: " .. tostring(max_width) .. " < " .. tostring(l_pad) .. " + " .. tostring(r_pad), 2)
 	end
 
 	if min_width and width < min_width then
@@ -286,7 +287,7 @@ function labelPrototype:SetupCell(tooltip, value, justification, font, l_pad, r_
 	fs:SetWidth(0)
 	fs:SetPoint("TOPLEFT", self, "TOPLEFT", l_pad, 0)
 	fs:SetPoint("BOTTOMRIGHT", self, "BOTTOMRIGHT", -r_pad, 0)
---~ 	fs:SetPoint("TOPRIGHT", self, "TOPRIGHT", -r_pad, 0)
+	--~ 	fs:SetPoint("TOPRIGHT", self, "TOPRIGHT", -r_pad, 0)
 
 	self._paddingL = l_pad
 	self._paddingR = r_pad
@@ -399,9 +400,11 @@ end
 -- Cleans the cell hands it to its provider for storing
 function ReleaseCell(cell)
 	local tooltip = cell._tooltip
-	local font = (tooltip.lines[cell._line].is_header and tooltip.headerFont or tooltip.regularFont)
 
-	cell.fontString:SetTextColor(font:GetTextColor())
+	if tooltip then
+		local font = (tooltip.lines[cell._line].is_header and tooltip.headerFont or tooltip.regularFont)
+		cell.fontString:SetTextColor(font:GetTextColor())
+	end
 	cell._font = nil
 	cell._justification = nil
 	cell._colSpan = nil
@@ -500,14 +503,14 @@ local function checkJustification(justification, level, silent)
 		if silent then
 			return false
 		end
-		error("invalid justification, must one of LEFT, CENTER or RIGHT, not: "..tostring(justification), level+1)
+		error("invalid justification, must one of LEFT, CENTER or RIGHT, not: " .. tostring(justification), level + 1)
 	end
 	return true
 end
 
 function tipPrototype:SetColumnLayout(numColumns, ...)
-	if type(numColumns) ~= "number" or numColumns < 1  then
-		error("number of columns must be a positive number, not: "..tostring(numColumns), 2)
+	if type(numColumns) ~= "number" or numColumns < 1 then
+		error("number of columns must be a positive number, not: " .. tostring(numColumns), 2)
 	end
 
 	for i = 1, numColumns do
@@ -552,7 +555,6 @@ end
 ------------------------------------------------------------------------------
 -- Convenient methods
 ------------------------------------------------------------------------------
-
 function tipPrototype:Release()
 	lib:Release(self)
 end
@@ -791,12 +793,12 @@ function FixCellSizes(tooltip)
 			local left, right = colRange:match("^(%d+)%-(%d+)$")
 			left, right = tonumber(left), tonumber(right)
 
-			for col = left, right-1 do
+			for col = left, right - 1 do
 				width = width - columns[col].width - h_margin
 			end
 			width = width - columns[right].width
 
-			if width <=0 then
+			if width <= 0 then
 				colspans[colRange] = nil
 			else
 				width = width / (right - left + 1)
@@ -878,7 +880,7 @@ local function _SetCell(tooltip, lineNum, colNum, value, font, justification, co
 		justification = justification or tooltip.columns[colNum].justification or "LEFT"
 		colSpan = colSpan or 1
 	else
-		error("overlapping cells at column "..colNum, 3)
+		error("overlapping cells at column " .. colNum, 3)
 	end
 	local tooltipWidth = #tooltip.columns
 	local rightColNum
@@ -903,7 +905,7 @@ local function _SetCell(tooltip, lineNum, colNum, value, font, justification, co
 		if cell then
 			ReleaseCell(cell)
 		elseif cell == false then
-			error("overlapping cells at column "..i, 3)
+			error("overlapping cells at column " .. i, 3)
 		end
 		cells[i] = false
 	end
@@ -930,7 +932,7 @@ local function _SetCell(tooltip, lineNum, colNum, value, font, justification, co
 
 	if colSpan > 1 then
 		-- Postpone width changes until the tooltip is shown
-		local colRange = colNum.."-"..rightColNum
+		local colRange = colNum .. "-" .. rightColNum
 
 		tooltip.colspans[colRange] = max(tooltip.colspans[colRange] or 0, width)
 		layoutCleaner:RegisterForCleanup(tooltip)
@@ -969,7 +971,7 @@ do
 		if lineNum > 1 then
 			local v_margin = tooltip.cell_margin_v or CELL_MARGIN_V
 
-			line:SetPoint('TOP', tooltip.lines[lineNum-1], 'BOTTOM', 0, -v_margin)
+			line:SetPoint('TOP', tooltip.lines[lineNum - 1], 'BOTTOM', 0, -v_margin)
 			SetTooltipSize(tooltip, tooltip.width, tooltip.height + v_margin)
 		else
 			line:SetPoint('TOP', tooltip.scrollChild)
@@ -1002,7 +1004,7 @@ do
 		self.lines[line].is_header = true
 		return line, col
 	end
-end	-- do-block
+end -- do-block
 
 local GenericBackdrop = {
 	bgFile = "Interface\\Tooltips\\UI-Tooltip-Background",
@@ -1110,7 +1112,7 @@ do
 			if silent then
 				return false
 			end
-			error("font must be a Font instance or a string matching the name of a global Font instance, not: "..tostring(font), level + 1)
+			error("font must be a Font instance or a string matching the name of a global Font instance, not: " .. tostring(font), level + 1)
 		end
 		return true
 	end
@@ -1133,13 +1135,13 @@ do
 	function tipPrototype:SetCell(lineNum, colNum, value, ...)
 		-- Mandatory argument checking
 		if type(lineNum) ~= "number" then
-			error("line number must be a number, not: "..tostring(lineNum), 2)
+			error("line number must be a number, not: " .. tostring(lineNum), 2)
 		elseif lineNum < 1 or lineNum > #self.lines then
-			error("line number out of range: "..tostring(lineNum), 2)
+			error("line number out of range: " .. tostring(lineNum), 2)
 		elseif type(colNum) ~= "number" then
-			error("column number must be a number, not: "..tostring(colNum), 2)
+			error("column number must be a number, not: " .. tostring(colNum), 2)
 		elseif colNum < 1 or colNum > #self.columns then
-			error("column number out of range: "..tostring(colNum), 2)
+			error("column number out of range: " .. tostring(colNum), 2)
 		end
 
 		-- Variable argument checking
@@ -1164,7 +1166,7 @@ do
 
 		return _SetCell(self, lineNum, colNum, value, font, justification, colSpan, provider, select(i, ...))
 	end
-end	-- do-block
+end -- do-block
 
 function tipPrototype:GetFont()
 	return self.regularFont
@@ -1223,8 +1225,8 @@ function SetFrameScript(frame, script, func, arg)
 	if not scripts[script] then
 		return
 	end
-	frame["_"..script.."_func"] = func
-	frame["_"..script.."_arg"] = arg
+	frame["_" .. script .. "_func"] = func
+	frame["_" .. script .. "_arg"] = arg
 
 	if script == "OnMouseDown" or script == "OnMouseUp" or script == "OnReceiveDrag" then
 		if func then
@@ -1334,11 +1336,11 @@ end
 -- "Smart" Anchoring
 ------------------------------------------------------------------------------
 local function GetTipAnchor(frame)
-	local x,y = frame:GetCenter()
+	local x, y = frame:GetCenter()
 	if not x or not y then return "TOPLEFT", "BOTTOMLEFT" end
-	local hhalf = (x > UIParent:GetWidth() * 2/3) and "RIGHT" or (x < UIParent:GetWidth() / 3) and "LEFT" or ""
+	local hhalf = (x > UIParent:GetWidth() * 2 / 3) and "RIGHT" or (x < UIParent:GetWidth() / 3) and "LEFT" or ""
 	local vhalf = (y > UIParent:GetHeight() / 2) and "TOP" or "BOTTOM"
-	return vhalf..hhalf, frame, (vhalf == "TOP" and "BOTTOM" or "TOP")..hhalf
+	return vhalf .. hhalf, frame, (vhalf == "TOP" and "BOTTOM" or "TOP") .. hhalf
 end
 
 function tipPrototype:SmartAnchorTo(frame)
@@ -1353,7 +1355,7 @@ end
 ------------------------------------------------------------------------------
 -- Debug slashcmds
 ------------------------------------------------------------------------------
---@debug@
+-- @debug @
 local print = print
 local function PrintStats()
 	local tipCache = tostring(#tooltipHeap)
@@ -1361,16 +1363,16 @@ local function PrintStats()
 	local tableCache = tostring(#tableHeap)
 	local header = false
 
-	print("Tooltips used: "..usedTooltips..", Cached: "..tipCache..", Total: "..tipCache + usedTooltips)
-	print("Frames used: "..usedFrames..", Cached: "..frameCache..", Total: "..frameCache + usedFrames)
-	print("Tables used: "..usedTables..", Cached: "..tableCache..", Total: "..tableCache + usedTables)
+	print("Tooltips used: " .. usedTooltips .. ", Cached: " .. tipCache .. ", Total: " .. tipCache + usedTooltips)
+	print("Frames used: " .. usedFrames .. ", Cached: " .. frameCache .. ", Total: " .. frameCache + usedFrames)
+	print("Tables used: " .. usedTables .. ", Cached: " .. tableCache .. ", Total: " .. tableCache + usedTables)
 
 	for k, v in pairs(activeTooltips) do
 		if not header then
 			print("Active tooltips:")
 			header = true
 		end
-		print("- "..k)
+		print("- " .. k)
 	end
 end
 
