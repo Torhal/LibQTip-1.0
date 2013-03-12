@@ -1,5 +1,5 @@
 local MAJOR = "LibQTip-1.0"
-local MINOR = 40 -- Should be manually increased
+local MINOR = 41 -- Should be manually increased
 assert(LibStub, MAJOR .. " requires LibStub")
 
 local lib, oldminor = LibStub:NewLibrary(MAJOR, MINOR)
@@ -291,7 +291,6 @@ function labelPrototype:SetupCell(tooltip, value, justification, font, l_pad, r_
 
 	self._paddingL = l_pad
 	self._paddingR = r_pad
-	self._tooltip = tooltip
 
 	return width, height
 end
@@ -399,18 +398,12 @@ end
 
 -- Cleans the cell hands it to its provider for storing
 function ReleaseCell(cell)
-	local tooltip = cell._tooltip
-
-	if tooltip then
-		local font = (tooltip.lines[cell._line].is_header and tooltip.headerFont or tooltip.regularFont)
-		cell.fontString:SetTextColor(font:GetTextColor())
-	end
+	cell.fontString:SetFontObject(cell._font)
 	cell._font = nil
 	cell._justification = nil
 	cell._colSpan = nil
 	cell._line = nil
 	cell._column = nil
-	cell._tooltip = nil
 
 	cell:Hide()
 	cell:ClearAllPoints()
