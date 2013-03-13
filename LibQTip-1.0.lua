@@ -1,5 +1,5 @@
 local MAJOR = "LibQTip-1.0"
-local MINOR = 41 -- Should be manually increased
+local MINOR = 42 -- Should be manually increased
 assert(LibStub, MAJOR .. " requires LibStub")
 
 local lib, oldminor = LibStub:NewLibrary(MAJOR, MINOR)
@@ -398,7 +398,13 @@ end
 
 -- Cleans the cell hands it to its provider for storing
 function ReleaseCell(cell)
-	cell.fontString:SetFontObject(cell._font)
+	if cell.fontString then
+		cell.fontString:SetFontObject(cell._font)
+
+		if cell.r then
+			cell.fontString:SetTextColor(cell.r, cell.g, cell.b)
+		end
+	end
 	cell._font = nil
 	cell._justification = nil
 	cell._colSpan = nil
@@ -1055,9 +1061,16 @@ function tipPrototype:SetCellTextColor(lineNum, colNum, r, g, b, a)
 		return
 	end
 	local cell = self.lines[lineNum].cells[colNum]
-	local font = (line.is_header and self.headerFont or self.regularFont)
 
 	if cell then
+		if not cell.fontString then
+			error("cell's label provider did not assign a fontString field", 2)
+		end
+
+		if not cell.r then
+			cell.r, cell.g, cell.b = cell.fontString:GetTextColor()
+		end
+		local font = (line.is_header and self.headerFont or self.regularFont)
 		local sr, sg, sb, sa = font:GetTextColor()
 		cell.fontString:SetTextColor(r or sr, g or sg, b or sb, a or sa)
 	end
