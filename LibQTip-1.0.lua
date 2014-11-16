@@ -1,5 +1,5 @@
 local MAJOR = "LibQTip-1.0"
-local MINOR = 42 -- Should be manually increased
+local MINOR = 43 -- Should be manually increased
 assert(LibStub, MAJOR .. " requires LibStub")
 
 local lib, oldminor = LibStub:NewLibrary(MAJOR, MINOR)
