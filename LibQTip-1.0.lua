@@ -1,5 +1,5 @@
 local MAJOR = "LibQTip-1.0"
-local MINOR = 45 -- Should be manually increased
+local MINOR = 46 -- Should be manually increased
 local LibStub = _G.LibStub
 
 assert(LibStub, MAJOR .. " requires LibStub")
@@ -733,7 +733,7 @@ function tipPrototype:UpdateScrolling(maxheight)
 
 		if not self.slider then
 			local slider = CreateFrame("Slider", nil, self)
-			self.slider = slider
+			slider.scrollFrame = self.scrollFrame
 
 			slider:SetOrientation("VERTICAL")
 			slider:SetPoint("TOPRIGHT", self, "TOPRIGHT", -TOOLTIP_PADDING, -TOOLTIP_PADDING)
@@ -745,7 +745,8 @@ function tipPrototype:UpdateScrolling(maxheight)
 			slider:SetWidth(12)
 			slider:SetScript("OnValueChanged", slider_OnValueChanged)
 			slider:SetValue(0)
-			slider.scrollFrame = self.scrollFrame
+
+			self.slider = slider
 		end
 
 		self.slider:SetMinMaxValues(0, shrink)
