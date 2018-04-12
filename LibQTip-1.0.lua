@@ -463,7 +463,7 @@ end
 
 -- Cleans the cell hands it to its provider for storing
 function ReleaseCell(cell)
-	if cell.r then
+	if cell.fontString and cell.r then
 		cell.fontString:SetTextColor(cell.r, cell.g, cell.b, cell.a)
 	end
 
